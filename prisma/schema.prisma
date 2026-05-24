@@ -1,0 +1,333 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum AppRole {
+  ADMIN
+  OPERATOR
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  OPENED
+  REPLIED
+  INTERESTED
+  MEETING_BOOKED
+  NOT_INTERESTED
+  BOUNCED
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  STOPPED
+  SUPPRESSED
+}
+
+enum MailboxWarmupState {
+  COLD
+  WARMING
+  ACTIVE
+  PAUSED
+}
+
+enum MessageStatus {
+  SCHEDULED
+  CLAIMED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  FAILED
+  SUPPRESSED
+  CANCELLED
+}
+
+enum MessageEventType {
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  SOFT_BOUNCE
+  HARD_BOUNCE
+  INVALID
+  DEFERRED
+  COMPLAINT
+  UNSUBSCRIBED
+  BLOCKED
+  ERROR
+}
+
+enum SuppressionReason {
+  UNSUBSCRIBED
+  HARD_BOUNCE
+  COMPLAINT
+  MANUAL_BLOCK
+  INVALID_EMAIL
+}
+
+enum ImportJobStatus {
+  PENDING
+  PREVIEW
+  COMPLETED
+  FAILED
+}
+
+enum CronJobStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model AppUser {
+  id            String      @id @db.Uuid
+  email         String      @unique
+  fullName      String?
+  role          AppRole     @default(OPERATOR)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  createdLeads  Lead[]      @relation("LeadCreatedBy")
+  leadNotes     LeadNote[]
+  campaigns     Campaign[]
+  importJobs    ImportJob[]
+}
+
+model Lead {
+  id              String               @id @default(cuid())
+  firstName       String?
+  lastName        String?
+  email           String
+  normalizedEmail String               @unique
+  company         String?
+  website         String?
+  industry        String?
+  country         String?
+  linkedinUrl     String?
+  status          LeadStatus           @default(NEW)
+  customFields    Json?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  createdById     String?              @db.Uuid
+  createdBy       AppUser?             @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  tags            LeadTagAssignment[]
+  notes           LeadNote[]
+  enrollments     CampaignEnrollment[]
+  messages        OutboundMessage[]
+  suppressions    SuppressionEntry[]
+  emailEvents     EmailEvent[]
+}
+
+model LeadTag {
+  id          String              @id @default(cuid())
+  name        String              @unique
+  color       String?
+  createdAt   DateTime            @default(now())
+  assignments LeadTagAssignment[]
+}
+
+model LeadTagAssignment {
+  id        String   @id @default(cuid())
+  leadId    String
+  tagId     String
+  createdAt DateTime @default(now())
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tag       LeadTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, tagId])
+}
+
+model LeadNote {
+  id        String   @id @default(cuid())
+  leadId     String
+  authorId   String   @db.Uuid
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author     AppUser  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Mailbox {
+  id            String             @id @default(cuid())
+  name          String
+  fromEmail     String             @unique
+  fromName      String
+  replyTo       String?
+  dailyCap      Int                @default(30)
+  timezone      String             @default("Europe/Bucharest")
+  sendWindow    Json
+  warmupState   MailboxWarmupState @default(COLD)
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  campaigns     Campaign[]
+  messages      OutboundMessage[]
+  suppressions  SuppressionEntry[]
+}
+
+model Campaign {
+  id              String               @id @default(cuid())
+  name            String
+  description     String?
+  mailboxId       String
+  timezone        String               @default("Europe/Bucharest")
+  dailyLimit      Int                  @default(30)
+  sendWindow      Json
+  status          CampaignStatus       @default(DRAFT)
+  createdById     String               @db.Uuid
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  lastActivatedAt DateTime?
+  mailbox         Mailbox              @relation(fields: [mailboxId], references: [id], onDelete: Restrict)
+  createdBy       AppUser              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  steps           SequenceStep[]
+  enrollments     CampaignEnrollment[]
+  messages        OutboundMessage[]
+  events          EmailEvent[]
+  suppressions    SuppressionEntry[]
+}
+
+model CampaignEnrollment {
+  id             String           @id @default(cuid())
+  campaignId     String
+  leadId         String
+  status         EnrollmentStatus @default(ACTIVE)
+  enrolledAt     DateTime         @default(now())
+  completedAt    DateTime?
+  stoppedReason  String?
+  nextStepOrder  Int              @default(1)
+  campaign       Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead           Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  messages       OutboundMessage[]
+
+  @@unique([campaignId, leadId])
+}
+
+model SequenceStep {
+  id            String    @id @default(cuid())
+  campaignId     String
+  stepOrder      Int
+  subject        String
+  body           String
+  delayDaysMin   Int      @default(0)
+  delayDaysMax   Int      @default(0)
+  stopOnReply    Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  campaign       Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  messages       OutboundMessage[]
+
+  @@unique([campaignId, stepOrder])
+}
+
+model OutboundMessage {
+  id                String        @id @default(cuid())
+  campaignId        String
+  leadId            String
+  mailboxId         String
+  enrollmentId      String
+  sequenceStepId    String
+  subject           String
+  htmlBody          String
+  textBody          String?
+  tags              String[]
+  dynamicParams     Json?
+  status            MessageStatus @default(SCHEDULED)
+  scheduledAt       DateTime
+  claimedAt         DateTime?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  failedAt          DateTime?
+  providerMessageId String?
+  threadRef         String?
+  unsubscribeToken  String        @unique
+  retryCount        Int           @default(0)
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  campaign          Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead              Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  mailbox           Mailbox       @relation(fields: [mailboxId], references: [id], onDelete: Restrict)
+  enrollment        CampaignEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  sequenceStep      SequenceStep  @relation(fields: [sequenceStepId], references: [id], onDelete: Cascade)
+  events            EmailEvent[]
+
+  @@index([status, scheduledAt])
+  @@index([providerMessageId])
+}
+
+model EmailEvent {
+  id                String           @id @default(cuid())
+  eventKey          String           @unique
+  eventType         MessageEventType
+  providerMessageId String?
+  leadEmail         String?
+  payload           Json
+  occurredAt        DateTime
+  processedAt       DateTime         @default(now())
+  outboundMessageId String?
+  campaignId        String?
+  leadId            String?
+  outboundMessage   OutboundMessage? @relation(fields: [outboundMessageId], references: [id], onDelete: SetNull)
+  campaign          Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  lead              Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([providerMessageId])
+}
+
+model ImportJob {
+  id          String          @id @default(cuid())
+  fileName    String?
+  status      ImportJobStatus @default(PENDING)
+  summary     Json?
+  rawColumns  String[]
+  totalRows   Int             @default(0)
+  createdById String          @db.Uuid
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  createdBy   AppUser         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+model SuppressionEntry {
+  id         String            @id @default(cuid())
+  leadId      String
+  mailboxId   String?
+  campaignId  String?
+  reason      SuppressionReason
+  source      String?
+  createdAt   DateTime          @default(now())
+  lead        Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  mailbox     Mailbox?          @relation(fields: [mailboxId], references: [id], onDelete: SetNull)
+  campaign    Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, reason])
+}
+
+model CronJobRun {
+  id         String        @id @default(cuid())
+  jobName    String
+  status     CronJobStatus @default(RUNNING)
+  summary    Json?
+  error      String?
+  startedAt  DateTime      @default(now())
+  finishedAt DateTime?
+}
