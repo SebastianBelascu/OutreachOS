@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { connection } from "next/server";
 
 import { InternalAppShell } from "@/components/internal/app-shell";
 import { requireAppUser } from "@/lib/outreach/auth";
+import { unreadInboxCount } from "@/lib/outreach/inbox";
 
 export default async function WorkspaceLayout({
   children,
@@ -17,13 +17,13 @@ export default async function WorkspaceLayout({
     redirect("/auth/login");
   }
 
-  const pathname = (await headers()).get("x-pathname") ?? "/dashboard";
+  const unreadInbox = await unreadInboxCount().catch(() => 0);
 
   return (
     <InternalAppShell
-      pathname={pathname}
       userName={appUser.fullName ?? appUser.email}
       userRole={appUser.role}
+      unreadInbox={unreadInbox}
     >
       {children}
     </InternalAppShell>

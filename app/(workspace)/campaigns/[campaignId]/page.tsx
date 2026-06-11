@@ -1,17 +1,27 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { AddSequenceStepDialog } from "@/components/internal/add-sequence-step-dialog";
+import { CampaignPreflight } from "@/components/internal/campaign-preflight";
+import { CampaignProgressRail } from "@/components/internal/campaign-progress-rail";
+import { LeadPicker } from "@/components/internal/lead-picker";
+import { SequenceStepCard } from "@/components/internal/sequence-step-card";
+import { StatusBadge } from "@/components/internal/status-badge";
+import { VariantPerformanceTable } from "@/components/internal/variant-performance-table";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  activateCampaignAction,
-  createSequenceStepAction,
-  enrollLeadsAction,
-} from "@/app/(workspace)/actions";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getCampaignProgressSnapshot, getVariantPerformance } from "@/lib/outreach/analytics";
 import { getCampaignById } from "@/lib/outreach/campaigns";
 import { listLeads } from "@/lib/outreach/leads";
+import { buildLeadTemplateParams } from "@/lib/outreach/variables";
 import { formatDateTime } from "@/lib/utils";
 
 interface CampaignDetailPageProps {
@@ -23,141 +33,224 @@ interface CampaignDetailPageProps {
 export default async function CampaignDetailPage({ params }: CampaignDetailPageProps) {
   await connection();
   const { campaignId } = await params;
-  const [campaign, leads] = await Promise.all([getCampaignById(campaignId), listLeads()]);
+  const [campaign, leads, variantPerformance] = await Promise.all([
+    getCampaignById(campaignId),
+    listLeads(),
+    getVariantPerformance(campaignId),
+  ]);
 
   if (!campaign) {
     notFound();
   }
-
-  const availableLeadIds = leads.map((lead) => lead.id).join(",");
+  const previewLeads = leads.slice(0, 12).map((lead) => ({
+    id: lead.id,
+    label: lead.company ?? lead.email,
+    params: buildLeadTemplateParams(lead),
+  }));
+  const progress = getCampaignProgressSnapshot(campaign);
+  const sentMessages = campaign.messages.filter((message) =>
+    ["SENT", "DELIVERED", "OPENED", "CLICKED"].includes(message.status),
+  ).length;
 
   return (
-    <div className="space-y-6">
-      <Card className="rounded-[24px] border-white/70 bg-white/85">
-        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <CardTitle>{campaign.name}</CardTitle>
-            <p className="mt-2 text-sm text-slate-600">{campaign.description ?? "No description set."}</p>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-lg font-semibold">{campaign.name}</h2>
+            <StatusBadge status={campaign.status} />
           </div>
-          <form action={activateCampaignAction}>
-            <input type="hidden" name="campaignId" value={campaign.id} />
-            <Button type="submit">Activate campaign</Button>
-          </form>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Mailbox</p>
-            <p className="mt-2 font-medium">{campaign.mailbox.fromEmail}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Status</p>
-            <p className="mt-2 font-medium">{campaign.status}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Daily limit</p>
-            <p className="mt-2 font-medium">{campaign.dailyLimit}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Last activated</p>
-            <p className="mt-2 font-medium">
-              {campaign.lastActivatedAt ? formatDateTime(campaign.lastActivatedAt) : "Not yet"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="space-y-6">
-          <Card className="rounded-[24px] border-white/70 bg-white/85">
-            <CardHeader>
-              <CardTitle>Add sequence step</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form action={createSequenceStepAction} className="space-y-4">
-                <input type="hidden" name="campaignId" value={campaign.id} />
-                <Input name="subject" placeholder="Subject with {{first_name}} variables" />
-                <Textarea name="body" placeholder="Email body with {{company}} and {{website}}" />
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Input name="delayDaysMin" type="number" defaultValue="0" placeholder="Min delay" />
-                  <Input name="delayDaysMax" type="number" defaultValue="0" placeholder="Max delay" />
-                  <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm">
-                    <input type="checkbox" name="stopOnReply" defaultChecked />
-                    Stop on reply
-                  </label>
-                </div>
-                <Button type="submit">Add step</Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-[24px] border-white/70 bg-white/85">
-            <CardHeader>
-              <CardTitle>Enroll leads</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form action={enrollLeadsAction} className="space-y-4">
-                <input type="hidden" name="campaignId" value={campaign.id} />
-                <Textarea
-                  name="leadIds"
-                  defaultValue={availableLeadIds}
-                  className="min-h-[130px]"
-                  placeholder="Comma-separated lead IDs"
-                />
-                <p className="text-xs text-slate-500">
-                  Quick-start mode uses comma-separated lead IDs. You can paste a filtered batch here or trim the list before saving.
-                </p>
-                <Button type="submit" variant="outline">
-                  Create enrollments
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {campaign.description ?? "No description"} - {campaign.mailboxPool.length || 1} inboxes in pool
+          </p>
         </div>
-
-        <div className="space-y-6">
-          <Card className="rounded-[24px] border-white/70 bg-white/85">
-            <CardHeader>
-              <CardTitle>Sequence</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {campaign.steps.map((step) => (
-                <div key={step.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Step {step.stepOrder}</p>
-                  <p className="mt-2 font-medium text-slate-950">{step.subject}</p>
-                  <p className="mt-2 whitespace-pre-line text-sm text-slate-700">{step.body}</p>
-                  <p className="mt-3 text-xs text-slate-500">
-                    Delay {step.delayDaysMin}-{step.delayDaysMax} days · stop on reply: {step.stopOnReply ? "yes" : "no"}
-                  </p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-[24px] border-white/70 bg-white/85">
-            <CardHeader>
-              <CardTitle>Scheduled messages</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {campaign.messages.map((message) => (
-                <div key={message.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-slate-950">{message.subject}</p>
-                      <p className="text-xs text-slate-500">{message.lead.email}</p>
-                    </div>
-                    <span className="rounded-full bg-slate-950 px-3 py-1 text-[11px] text-white">
-                      {message.status}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-xs text-slate-500">
-                    Scheduled {formatDateTime(message.scheduledAt)} · provider id {message.providerMessageId ?? "pending"}
-                  </p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+        <div className="flex items-center gap-2">
+          <LeadPicker campaignId={campaign.id} leads={leads} />
+          <AddSequenceStepDialog campaignId={campaign.id} previewLeads={previewLeads} />
         </div>
       </div>
+
+      <CampaignProgressRail progress={progress} />
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <Card className="rounded-lg">
+          <CardContent className="p-4">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Sequence</p>
+            <p className="mt-2 text-2xl font-semibold">{campaign.steps.length}</p>
+            <p className="text-xs text-muted-foreground">email steps</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-lg">
+          <CardContent className="p-4">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Leads</p>
+            <p className="mt-2 text-2xl font-semibold">{campaign.enrollments.length}</p>
+            <p className="text-xs text-muted-foreground">enrolled</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-lg">
+          <CardContent className="p-4">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Queued</p>
+            <p className="mt-2 text-2xl font-semibold">{campaign.messages.length}</p>
+            <p className="text-xs text-muted-foreground">scheduled or recent</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-lg">
+          <CardContent className="p-4">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Sent</p>
+            <p className="mt-2 text-2xl font-semibold">{sentMessages}</p>
+            <p className="text-xs text-muted-foreground">already contacted</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="sequence" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="sequence">Sequence</TabsTrigger>
+          <TabsTrigger value="leads">Leads</TabsTrigger>
+          <TabsTrigger value="launch">Launch</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="events">Events</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="sequence" className="space-y-3">
+          {campaign.steps.length === 0 ? (
+            <div className="rounded-lg border border-dashed bg-card p-8 text-center">
+              <p className="text-sm font-medium">No sequence steps yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">Add the first outreach email before enrolling leads.</p>
+              <div className="mt-4">
+                <AddSequenceStepDialog campaignId={campaign.id} previewLeads={previewLeads} />
+              </div>
+            </div>
+          ) : (
+            <>
+              {campaign.steps.map((step) => (
+                <SequenceStepCard key={step.id} campaignId={campaign.id} step={step} />
+              ))}
+              <VariantPerformanceTable rows={variantPerformance} />
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="leads" className="rounded-lg border bg-card">
+          <div className="flex items-center justify-between border-b p-3">
+            <div>
+              <p className="text-sm font-medium">Enrolled leads</p>
+              <p className="text-xs text-muted-foreground">{campaign.enrollments.length} leads in this campaign</p>
+            </div>
+            <LeadPicker campaignId={campaign.id} leads={leads} />
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Lead</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Next step</TableHead>
+                <TableHead className="text-right">Enrolled</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {campaign.enrollments.map((enrollment) => (
+                <TableRow key={enrollment.id}>
+                  <TableCell>
+                    <p className="font-medium">{enrollment.lead.company ?? enrollment.lead.email}</p>
+                    <p className="text-xs text-muted-foreground">{enrollment.lead.email}</p>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={enrollment.status} />
+                  </TableCell>
+                  <TableCell>{enrollment.nextStepOrder}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">
+                    {formatDateTime(enrollment.enrolledAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {campaign.enrollments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-28 text-center text-muted-foreground">
+                    No leads enrolled yet.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </TabsContent>
+
+        <TabsContent value="launch">
+          <CampaignPreflight campaign={campaign} />
+        </TabsContent>
+
+        <TabsContent value="messages" className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Message</TableHead>
+                <TableHead>Lead</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Mailbox</TableHead>
+                <TableHead>Provider</TableHead>
+                <TableHead className="text-right">Scheduled</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {campaign.messages.map((message) => (
+                <TableRow key={message.id}>
+                  <TableCell className="font-medium">{message.subject}</TableCell>
+                  <TableCell>{message.lead.email}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={message.status} />
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{message.mailbox.fromEmail}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{message.providerMessageId ?? "pending"}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">
+                    {formatDateTime(message.scheduledAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {campaign.messages.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
+                    No messages scheduled yet.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </TabsContent>
+
+        <TabsContent value="events" className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Event</TableHead>
+                <TableHead>Provider message</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead className="text-right">Occurred</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {campaign.events.map((event) => (
+                <TableRow key={event.id}>
+                  <TableCell>
+                    <StatusBadge status={event.eventType} />
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{event.providerMessageId ?? "-"}</TableCell>
+                  <TableCell>{event.leadEmail ?? "-"}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">
+                    {formatDateTime(event.occurredAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {campaign.events.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-28 text-center text-muted-foreground">
+                    No Brevo events received yet.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

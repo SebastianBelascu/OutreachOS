@@ -25,7 +25,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-      <Card className="rounded-[24px] border-white/70 bg-white/85">
+      <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>{lead.company ?? lead.email}</CardTitle>
         </CardHeader>
@@ -64,7 +64,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
       </Card>
 
       <div className="space-y-6">
-        <Card className="rounded-[24px] border-white/70 bg-white/85">
+        <Card className="rounded-lg">
           <CardHeader>
             <CardTitle>Add note</CardTitle>
           </CardHeader>
@@ -77,13 +77,37 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[24px] border-white/70 bg-white/85">
+        {lead.inboundMessages.length > 0 ? (
+          <Card className="rounded-lg">
+            <CardHeader>
+              <CardTitle>Replies</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {lead.inboundMessages.map((reply) => (
+                <div key={reply.id} className="rounded-md border bg-muted/30 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-slate-900">{reply.subject ?? "(no subject)"}</p>
+                    <span className="rounded bg-background px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                      {reply.classification.replaceAll("_", " ").toLowerCase()}
+                    </span>
+                  </div>
+                  <p className="mt-1 whitespace-pre-line text-sm text-slate-700">
+                    {reply.cleanedText ?? reply.snippet ?? ""}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500">{formatDateTime(reply.receivedAt)}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Card className="rounded-lg">
           <CardHeader>
             <CardTitle>Timeline</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {lead.notes.map((note) => (
-              <div key={note.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={note.id} className="rounded-md border bg-muted/30 p-4">
                 <p className="text-sm text-slate-800">{note.content}</p>
                 <p className="mt-2 text-xs text-slate-500">
                   {note.author.fullName ?? note.author.email} · {formatDateTime(note.createdAt)}
@@ -91,7 +115,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               </div>
             ))}
             {lead.messages.map((message) => (
-              <div key={message.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={message.id} className="rounded-md border bg-muted/30 p-4">
                 <p className="font-medium text-slate-900">{message.subject}</p>
                 <p className="mt-1 text-xs text-slate-500">
                   {message.status} · scheduled {formatDateTime(message.scheduledAt)}

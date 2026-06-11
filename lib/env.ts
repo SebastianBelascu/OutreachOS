@@ -31,3 +31,26 @@ export function hasRequiredServerEnv() {
     return Boolean(value && value.trim().length > 0);
   });
 }
+
+function readOptionalNumber(key: string, fallback: number) {
+  const value = process.env[key];
+  if (!value || value.trim().length === 0) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/**
+ * Optional operational settings that don't block boot when absent.
+ */
+export function getOptionalEnv() {
+  return {
+    cronSecret: process.env.CRON_SECRET ?? null,
+    mailboxCredentialsKey: process.env.MAILBOX_CREDENTIALS_KEY ?? null,
+    guardrailBounceRate: readOptionalNumber("GUARDRAIL_BOUNCE_RATE", 0.05),
+    guardrailComplaintRate: readOptionalNumber("GUARDRAIL_COMPLAINT_RATE", 0.001),
+    guardrailWarnBounceRate: readOptionalNumber("GUARDRAIL_WARN_BOUNCE_RATE", 0.03),
+    guardrailMinVolume: readOptionalNumber("GUARDRAIL_MIN_VOLUME", 30),
+  };
+}

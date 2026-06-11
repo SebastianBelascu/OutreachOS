@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   await connection();
   return (
     <div className="space-y-6">
-      <Card className="rounded-[24px] border-white/70 bg-white/85">
+      <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Infrastructure readiness</CardTitle>
         </CardHeader>
@@ -28,9 +28,9 @@ export default async function SettingsPage() {
           </p>
           <div className="grid gap-3 md:grid-cols-2">
             {REQUIRED_ITEMS.map((item) => (
-              <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="font-medium text-slate-950">{item}</p>
-                <p className="mt-2 text-xs text-slate-500">
+              <div key={item} className="rounded-md border bg-muted/30 p-4">
+                <p className="font-medium">{item}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
                   Configure this before enabling live sending or Brevo webhooks.
                 </p>
               </div>

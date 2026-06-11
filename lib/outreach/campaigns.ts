@@ -1,13 +1,50 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { addDelayDays, clampSendWindow, createUnsubscribeToken, slugify } from "@/lib/outreach/format";
+import {
+  addDelayDays,
+  clampSendWindow,
+  createSeededRng,
+  createUnsubscribeToken,
+  slugify,
+  weightedIndex,
+} from "@/lib/outreach/format";
+import { mailboxLocalPartFromEmail } from "@/lib/outreach/mailboxes";
+import { encryptSecret, hasCredentialsKey } from "@/lib/outreach/crypto";
 import { renderSequenceMessage } from "@/lib/outreach/render";
 import {
   campaignEnrollmentInputSchema,
   campaignInputSchema,
+  createCampaignFromTemplateSchema,
   sequenceStepInputSchema,
+  sequenceStepVariantInputSchema,
 } from "@/lib/outreach/validators";
+import { getCampaignTemplate } from "@/lib/outreach/templates";
+
+/**
+ * The campaign's effective daily limit for `now`, applying an optional warmup ramp
+ * (mirrors getMailboxRampCap). When rampEnabled, the cap grows from rampStart by
+ * rampIncrement per day since activation, never exceeding dailyLimit.
+ */
+export function getCampaignEffectiveDailyLimit(
+  campaign: {
+    dailyLimit: number;
+    rampEnabled: boolean;
+    rampStart: number;
+    rampIncrement: number;
+    lastActivatedAt: Date | null;
+  },
+  now = new Date(),
+) {
+  if (!campaign.rampEnabled || !campaign.lastActivatedAt) {
+    return campaign.dailyLimit;
+  }
+
+  const ageMs = now.getTime() - campaign.lastActivatedAt.getTime();
+  const ageDays = Math.max(0, Math.floor(ageMs / 86_400_000));
+  const rampCap = campaign.rampStart + ageDays * campaign.rampIncrement;
+  return Math.max(1, Math.min(campaign.dailyLimit, rampCap));
+}
 
 function parseSendWindow(windowValue: Prisma.JsonValue | null) {
   if (!windowValue || typeof windowValue !== "object" || Array.isArray(windowValue)) {
@@ -27,16 +64,60 @@ function parseSendWindow(windowValue: Prisma.JsonValue | null) {
 export async function createMailbox(input: unknown) {
   const { mailboxInputSchema } = await import("@/lib/outreach/validators");
   const parsed = mailboxInputSchema.parse(input);
+  const fromDomain = parsed.fromEmail.split("@")[1]?.toLowerCase();
+  const selectedDomain =
+    parsed.domainId ||
+    (fromDomain
+      ? (
+          await prisma.sendingDomain.findUnique({
+            where: { domain: fromDomain },
+            select: { id: true },
+          })
+        )?.id
+      : null);
+
+  const imapPassword = parsed.imapPassword?.trim() || "";
+  const imapConfigured = Boolean(parsed.imapHost && parsed.imapUsername && imapPassword);
+  const imapPasswordEnc = imapPassword && hasCredentialsKey() ? encryptSecret(imapPassword) : null;
+
+  const smtpPassword = parsed.smtpPassword?.trim() || "";
+  const smtpConfigured = Boolean(parsed.smtpHost && parsed.smtpUsername && smtpPassword);
+  const smtpPasswordEnc = smtpPassword && hasCredentialsKey() ? encryptSecret(smtpPassword) : null;
+  // Use SMTP automatically when its credentials are present, unless explicitly overridden.
+  const sendTransport = parsed.sendTransport === "SMTP" || (smtpConfigured && parsed.sendTransport !== "BREVO")
+    ? "SMTP"
+    : "BREVO";
 
   return prisma.mailbox.create({
     data: {
+      domainId: selectedDomain || null,
       name: parsed.name,
       fromEmail: parsed.fromEmail,
       fromName: parsed.fromName,
+      provider: parsed.provider,
+      hostLabel: parsed.hostLabel || null,
+      localPart: parsed.localPart || mailboxLocalPartFromEmail(parsed.fromEmail),
       replyTo: parsed.replyTo || null,
       dailyCap: parsed.dailyCap,
+      rampStart: parsed.rampStart,
+      rampIncrement: parsed.rampIncrement,
+      maxDailyCap: Math.max(parsed.maxDailyCap, parsed.rampStart),
+      rotationWeight: parsed.rotationWeight,
       timezone: parsed.timezone,
       warmupState: parsed.warmupState,
+      healthStatus: parsed.healthStatus,
+      hourlyCap: parsed.hourlyCap,
+      sendTransport,
+      smtpHost: parsed.smtpHost || null,
+      smtpPort: parsed.smtpPort,
+      smtpSecure: parsed.smtpSecure,
+      smtpUsername: parsed.smtpUsername || null,
+      smtpPasswordEnc,
+      imapHost: parsed.imapHost || null,
+      imapUsername: parsed.imapUsername || null,
+      imapPort: parsed.imapPort,
+      imapPasswordEnc,
+      connectionStatus: imapConfigured ? "READY" : parsed.connectionStatus,
       isActive: parsed.isActive,
       sendWindow: parsed.sendWindow as unknown as Prisma.InputJsonValue,
     },
@@ -45,8 +126,15 @@ export async function createMailbox(input: unknown) {
 
 export async function listMailboxes() {
   return prisma.mailbox.findMany({
+    omit: { imapPasswordEnc: true, smtpPasswordEnc: true },
     include: {
+      domain: true,
       campaigns: true,
+      campaignPoolAssignments: {
+        include: {
+          campaign: true,
+        },
+      },
       messages: {
         where: {
           status: {
@@ -61,6 +149,7 @@ export async function listMailboxes() {
 
 export async function createCampaign(input: unknown, createdById: string) {
   const parsed = campaignInputSchema.parse(input);
+  const mailboxIds = [...new Set([parsed.mailboxId, ...parsed.mailboxIds].filter(Boolean))];
   return prisma.campaign.create({
     data: {
       name: parsed.name,
@@ -68,8 +157,52 @@ export async function createCampaign(input: unknown, createdById: string) {
       mailboxId: parsed.mailboxId,
       timezone: parsed.timezone,
       dailyLimit: parsed.dailyLimit,
+      rampEnabled: parsed.rampEnabled,
+      rampStart: parsed.rampStart,
+      rampIncrement: parsed.rampIncrement,
       sendWindow: parsed.sendWindow as unknown as Prisma.InputJsonValue,
       createdById,
+      mailboxPool: {
+        create: mailboxIds.map((mailboxId) => ({
+          mailboxId,
+        })),
+      },
+    },
+  });
+}
+
+export async function createCampaignFromTemplate(input: unknown, createdById: string) {
+  const parsed = createCampaignFromTemplateSchema.parse(input);
+  const template = getCampaignTemplate(parsed.templateId);
+  if (!template) {
+    throw new Error("Unknown campaign template.");
+  }
+
+  const mailboxIds = [...new Set([parsed.mailboxId, ...parsed.mailboxIds].filter(Boolean))];
+  const sendWindow = parsed.sendWindow ?? clampSendWindow();
+
+  return prisma.campaign.create({
+    data: {
+      name: parsed.name || template.name,
+      description: template.description,
+      mailboxId: parsed.mailboxId,
+      timezone: parsed.timezone,
+      dailyLimit: parsed.dailyLimit || template.defaultDailyLimit,
+      sendWindow: sendWindow as unknown as Prisma.InputJsonValue,
+      createdById,
+      mailboxPool: {
+        create: mailboxIds.map((mailboxId) => ({ mailboxId })),
+      },
+      steps: {
+        create: template.steps.map((step, index) => ({
+          stepOrder: index + 1,
+          subject: step.subject,
+          body: step.body,
+          delayDaysMin: step.delayDaysMin,
+          delayDaysMax: Math.max(step.delayDaysMax, step.delayDaysMin),
+          stopOnReply: step.stopOnReply,
+        })),
+      },
     },
   });
 }
@@ -77,7 +210,20 @@ export async function createCampaign(input: unknown, createdById: string) {
 export async function listCampaigns() {
   return prisma.campaign.findMany({
     include: {
-      mailbox: true,
+      mailbox: {
+        include: {
+          domain: true,
+        },
+      },
+      mailboxPool: {
+        include: {
+          mailbox: {
+            include: {
+              domain: true,
+            },
+          },
+        },
+      },
       steps: {
         orderBy: { stepOrder: "asc" },
       },
@@ -98,9 +244,27 @@ export async function getCampaignById(campaignId: string) {
   return prisma.campaign.findUnique({
     where: { id: campaignId },
     include: {
-      mailbox: true,
+      mailbox: {
+        include: {
+          domain: true,
+        },
+      },
+      mailboxPool: {
+        include: {
+          mailbox: {
+            include: {
+              domain: true,
+            },
+          },
+        },
+      },
       steps: {
         orderBy: { stepOrder: "asc" },
+        include: {
+          variants: {
+            orderBy: { label: "asc" },
+          },
+        },
       },
       enrollments: {
         include: {
@@ -111,6 +275,7 @@ export async function getCampaignById(campaignId: string) {
       messages: {
         include: {
           lead: true,
+          mailbox: true,
         },
         orderBy: { scheduledAt: "desc" },
         take: 50,
@@ -139,6 +304,33 @@ export async function createSequenceStep(input: unknown) {
       delayDaysMax: Math.max(parsed.delayDaysMax, parsed.delayDaysMin),
       stopOnReply: parsed.stopOnReply,
     },
+  });
+}
+
+export async function createSequenceStepVariant(input: unknown) {
+  const parsed = sequenceStepVariantInputSchema.parse(input);
+  return prisma.sequenceStepVariant.create({
+    data: {
+      sequenceStepId: parsed.sequenceStepId,
+      label: parsed.label.toUpperCase(),
+      subject: parsed.subject,
+      body: parsed.body,
+      weight: parsed.weight,
+      isActive: parsed.isActive,
+    },
+  });
+}
+
+export async function toggleSequenceStepVariant(variantId: string, isActive: boolean) {
+  return prisma.sequenceStepVariant.update({
+    where: { id: variantId },
+    data: { isActive },
+  });
+}
+
+export async function deleteSequenceStepVariant(variantId: string) {
+  return prisma.sequenceStepVariant.delete({
+    where: { id: variantId },
   });
 }
 
@@ -214,8 +406,23 @@ export async function scheduleEnrollmentMessages(campaignId: string) {
     where: { id: campaignId },
     include: {
       mailbox: true,
+      mailboxPool: {
+        include: {
+          mailbox: {
+            include: {
+              domain: true,
+            },
+          },
+        },
+      },
       steps: {
         orderBy: { stepOrder: "asc" },
+        include: {
+          variants: {
+            where: { isActive: true },
+            orderBy: { label: "asc" },
+          },
+        },
       },
       enrollments: {
         where: { status: "ACTIVE" },
@@ -231,8 +438,13 @@ export async function scheduleEnrollmentMessages(campaignId: string) {
     throw new Error("Campaign not found.");
   }
 
-  if (!campaign.mailbox.isActive) {
-    throw new Error("Campaign mailbox is inactive.");
+  const usableMailboxes = campaign.mailboxPool
+    .filter((entry) => entry.isActive)
+    .map((entry) => entry.mailbox)
+    .filter((mailbox) => mailbox.isActive);
+
+  if (usableMailboxes.length === 0 && !campaign.mailbox.isActive) {
+    throw new Error("Campaign has no active mailbox pool.");
   }
 
   if (campaign.steps.length === 0) {
@@ -253,16 +465,39 @@ export async function scheduleEnrollmentMessages(campaignId: string) {
         cursor = addDelayDays(cursor, step.delayDaysMin, step.delayDaysMax);
       }
 
+      // A/B: when a step has active variants, deterministically pick one (weighted) per
+      // enrollment+step so re-runs are stable; otherwise use the base step copy.
+      const activeVariants = step.variants ?? [];
+      let variantId: string | null = null;
+      let chosenSubject = step.subject;
+      let chosenBody = step.body;
+      if (activeVariants.length > 0) {
+        const draw = createSeededRng(`${enrollment.id}:${step.id}`)();
+        const index = weightedIndex(
+          activeVariants.map((variant) => variant.weight),
+          draw,
+        );
+        const chosen = activeVariants[index];
+        variantId = chosen.id;
+        chosenSubject = chosen.subject;
+        chosenBody = chosen.body;
+      }
+
       const unsubscribeToken = createUnsubscribeToken(`${enrollment.id}:${step.id}:${Date.now()}:${Math.random()}`);
-      const rendered = renderSequenceMessage(step, enrollment.lead, unsubscribeToken);
+      const rendered = renderSequenceMessage(
+        { subject: chosenSubject, body: chosenBody },
+        enrollment.lead,
+        unsubscribeToken,
+      );
 
       await prisma.outboundMessage.create({
         data: {
           campaignId: campaign.id,
           leadId: enrollment.leadId,
-          mailboxId: campaign.mailboxId,
+          mailboxId: usableMailboxes[0]?.id ?? campaign.mailboxId,
           enrollmentId: enrollment.id,
           sequenceStepId: step.id,
+          variantId,
           subject: rendered.subject,
           htmlBody: rendered.htmlBody,
           textBody: rendered.subject,
@@ -287,6 +522,15 @@ export async function activateCampaign(campaignId: string) {
     where: { id: campaignId },
     include: {
       mailbox: true,
+      mailboxPool: {
+        include: {
+          mailbox: {
+            include: {
+              domain: true,
+            },
+          },
+        },
+      },
       steps: true,
     },
   });
@@ -295,8 +539,21 @@ export async function activateCampaign(campaignId: string) {
     throw new Error("Campaign not found.");
   }
 
-  if (!campaign.mailbox.isActive) {
-    throw new Error("Campaign mailbox must be active before launch.");
+  const readyMailboxes = campaign.mailboxPool
+    .filter((entry) => entry.isActive)
+    .map((entry) => entry.mailbox)
+    .filter((mailbox) => {
+      const domainReady = !mailbox.domain || mailbox.domain.status === "READY";
+      return (
+        mailbox.isActive &&
+        domainReady &&
+        mailbox.warmupState !== "PAUSED" &&
+        ["HEALTHY", "WARNING"].includes(mailbox.healthStatus)
+      );
+    });
+
+  if (readyMailboxes.length === 0) {
+    throw new Error("Campaign needs at least one ready mailbox before launch.");
   }
 
   if (campaign.steps.length === 0) {
@@ -315,6 +572,18 @@ export async function activateCampaign(campaignId: string) {
   });
 
   await scheduleEnrollmentMessages(campaignId);
+}
+
+export async function pauseEnrollment(leadId: string, campaignId: string) {
+  await prisma.campaignEnrollment.updateMany({
+    where: { leadId, campaignId, status: "ACTIVE" },
+    data: { status: "PAUSED" },
+  });
+
+  await prisma.outboundMessage.updateMany({
+    where: { leadId, campaignId, status: { in: ["SCHEDULED", "CLAIMED"] } },
+    data: { status: "CANCELLED" },
+  });
 }
 
 export async function stopLeadInCampaign(leadId: string, campaignId: string, reason: string) {

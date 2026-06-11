@@ -15,5 +15,5 @@ export async function POST(request: Request) {
   const payload = (await request.json()) as BrevoTransactionalWebhookPayload;
   const event = await processTransactionalWebhook(payload);
 
-  return NextResponse.json({ ok: true, eventId: event.id });
+  return NextResponse.json({ ok: true, eventId: event?.id ?? null });
 }

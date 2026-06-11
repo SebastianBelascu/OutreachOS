@@ -1,102 +1,186 @@
+"use client";
+
 import Link from "next/link";
-import { BarChart3, Boxes, Inbox, LayoutDashboard, Mail, Settings2 } from "lucide-react";
+import { usePathname } from "next/navigation";
+import {
+  BarChart3,
+  Boxes,
+  Globe2,
+  Inbox,
+  LayoutDashboard,
+  Mail,
+  MessagesSquare,
+  Search,
+  Settings2,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/leads", label: "Leads", icon: Inbox },
-  { href: "/campaigns", label: "Campaigns", icon: Mail },
-  { href: "/mailboxes", label: "Mailboxes", icon: Boxes },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings2 },
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    eyebrow: "Command center",
+    headline: "Outbound overview",
+  },
+  {
+    href: "/leads",
+    label: "Leads",
+    icon: Inbox,
+    eyebrow: "Lead database",
+    headline: "Leads",
+  },
+  {
+    href: "/campaigns",
+    label: "Campaigns",
+    icon: Mail,
+    eyebrow: "Campaign operations",
+    headline: "Campaigns",
+  },
+  {
+    href: "/inbox",
+    label: "Inbox",
+    icon: MessagesSquare,
+    eyebrow: "Unified replies",
+    headline: "Inbox",
+  },
+  {
+    href: "/mailboxes",
+    label: "Mailboxes",
+    icon: Boxes,
+    eyebrow: "Sending infrastructure",
+    headline: "Mailboxes",
+  },
+  {
+    href: "/domains",
+    label: "Domains",
+    icon: Globe2,
+    eyebrow: "Domain health",
+    headline: "Sending domains",
+  },
+  {
+    href: "/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+    eyebrow: "Performance tracking",
+    headline: "Analytics",
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: Settings2,
+    eyebrow: "Workspace setup",
+    headline: "Settings",
+  },
 ];
 
 interface InternalAppShellProps {
-  pathname: string;
   headline?: string;
   eyebrow?: string;
   userName: string;
   userRole: string;
+  unreadInbox?: number;
   children: React.ReactNode;
 }
 
 export function InternalAppShell({
-  pathname,
   headline,
   eyebrow,
   userName,
   userRole,
+  unreadInbox = 0,
   children,
 }: InternalAppShellProps) {
+  const pathname = usePathname();
+  const currentItem =
+    NAV_ITEMS.find((item) =>
+      item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href),
+    ) ?? NAV_ITEMS[0];
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,126,87,0.18),_transparent_26%),radial-gradient(circle_at_top_right,_rgba(0,148,255,0.12),_transparent_24%),linear-gradient(180deg,_rgba(245,241,235,1),_rgba(255,255,255,1))] text-slate-950">
-      <div className="mx-auto flex min-h-screen max-w-[1400px] flex-col gap-6 px-4 py-4 lg:flex-row lg:px-6">
-        <aside className="rounded-[28px] border border-white/60 bg-white/80 p-4 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur lg:w-[280px]">
-          <div className="space-y-4">
-            <div className="rounded-[24px] bg-slate-950 p-5 text-white">
-              <p className="text-xs uppercase tracking-[0.28em] text-white/60">OutreachOS</p>
-              <h1 className="mt-3 text-2xl font-semibold">SmartFusion outbound ops</h1>
-              <p className="mt-3 text-sm text-white/70">
-                Internal sending, sequences, and lead operations with full ownership.
-              </p>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="flex min-h-screen">
+        <aside className="hidden w-[248px] shrink-0 border-r bg-card lg:flex lg:flex-col">
+          <div className="flex h-14 items-center gap-2 border-b px-4">
+            <div className="flex size-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+              O
             </div>
-
-            <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Operator</p>
-              <p className="mt-3 text-lg font-semibold text-slate-950">{userName}</p>
-              <Badge className="mt-2 bg-orange-100 text-orange-900 hover:bg-orange-100">
-                {userRole}
-              </Badge>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">OutreachOS</p>
+              <p className="truncate text-xs text-muted-foreground">SmartFusion ops</p>
             </div>
+          </div>
 
-            <nav className="space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const isActive = pathname.startsWith(item.href);
-                const Icon = item.icon;
+          <nav className="flex-1 space-y-1 p-3">
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                item.href === "/dashboard"
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href);
+              const Icon = item.icon;
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition",
-                      isActive
-                        ? "bg-slate-950 text-white shadow-lg"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium transition",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  <Icon className="size-4" />
+                  <span className="flex-1">{item.label}</span>
+                  {item.href === "/inbox" && unreadInbox > 0 ? (
+                    <Badge className="h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]">
+                      {unreadInbox > 99 ? "99+" : unreadInbox}
+                    </Badge>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="border-t p-3">
+            <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-2">
+              <div className="flex size-8 items-center justify-center rounded-md bg-background text-xs font-semibold">
+                {userName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{userName}</p>
+                <Badge variant="secondary" className="mt-1 h-5 rounded px-1.5 text-[10px]">
+                  {userRole}
+                </Badge>
+              </div>
+            </div>
           </div>
         </aside>
 
-        <div className="flex-1">
-          <header className="mb-6 rounded-[28px] border border-white/70 bg-white/85 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-              {eyebrow ?? "Internal lead operating system"}
-            </p>
-            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h2 className="text-3xl font-semibold tracking-tight text-slate-950">
-                  {headline ?? "Outbound command center"}
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Build and operate campaigns, keep sending disciplined, and keep the data in-house.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                Brevo drives delivery, Postgres remains the source of truth.
-              </div>
+        <div className="min-w-0 flex-1">
+          <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur md:px-6">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                {eyebrow ?? currentItem.eyebrow}
+              </p>
+              <h1 className="truncate text-base font-semibold">
+                {headline ?? currentItem.headline}
+              </h1>
             </div>
+            <div className="hidden h-9 w-[280px] items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground md:flex">
+              <Search className="size-4" />
+              Search leads, campaigns...
+            </div>
+            <Separator orientation="vertical" className="hidden h-6 md:block" />
+            <Badge variant="outline" className="hidden h-7 rounded-md md:inline-flex">
+              Brevo + Postgres
+            </Badge>
           </header>
 
-          <main>{children}</main>
+          <main className="p-4 md:p-6">{children}</main>
         </div>
       </div>
     </div>

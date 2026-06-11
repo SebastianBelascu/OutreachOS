@@ -22,6 +22,19 @@ interface BrevoSendResponse {
   messageId: string;
 }
 
+export class BrevoSendError extends Error {
+  readonly status: number;
+  /** True for 429/5xx — transient errors worth retrying with backoff. */
+  readonly retryable: boolean;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "BrevoSendError";
+    this.status = status;
+    this.retryable = status === 429 || status >= 500;
+  }
+}
+
 export async function sendBrevoTransactionalEmail(payload: BrevoSendPayload) {
   const env = getServerEnv();
 
@@ -37,7 +50,7 @@ export async function sendBrevoTransactionalEmail(payload: BrevoSendPayload) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Brevo send failed: ${response.status} ${errorText}`);
+    throw new BrevoSendError(response.status, `Brevo send failed: ${response.status} ${errorText}`);
   }
 
   return (await response.json()) as BrevoSendResponse;

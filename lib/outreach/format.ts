@@ -31,6 +31,31 @@ export function createUnsubscribeToken(messageId: string) {
   return crypto.createHash("sha256").update(messageId).digest("hex");
 }
 
+/** Deterministic PRNG (mulberry32) seeded from a string. Returns a 0..1 generator. */
+export function createSeededRng(seed: string) {
+  let state = crypto.createHash("sha256").update(seed).digest().readUInt32LE(0);
+  return function next() {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Picks an index into `weights` proportionally, using a single 0..1 draw `r`. */
+export function weightedIndex(weights: number[], r: number) {
+  const total = weights.reduce((sum, weight) => sum + Math.max(1, weight), 0);
+  let threshold = r * total;
+  for (let index = 0; index < weights.length; index += 1) {
+    threshold -= Math.max(1, weights[index]);
+    if (threshold < 0) {
+      return index;
+    }
+  }
+  return weights.length - 1;
+}
+
 export function getDatePartsInTimeZone(date: Date, timeZone: string) {
   const formatter = new Intl.DateTimeFormat("en-GB", {
     timeZone,
@@ -103,6 +128,19 @@ export function randomBetween(min: number, max: number) {
   }
 
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+export function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Exponential backoff for soft-bounce / transient send retries.
+ * retry 0 -> 4h, retry 1 -> 8h, retry 2 -> 16h, capped at 24h.
+ */
+export function backoffScheduledAt(retryCount: number, now = new Date()) {
+  const hours = Math.min(24, 4 * 2 ** Math.max(0, retryCount));
+  return new Date(now.getTime() + hours * 60 * 60 * 1000);
 }
 
 export function addDelayDays(date: Date, minDays: number, maxDays: number) {

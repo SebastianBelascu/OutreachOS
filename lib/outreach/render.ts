@@ -1,8 +1,12 @@
 import type { Lead, SequenceStep } from "@prisma/client";
 
 import { absoluteUrl } from "@/lib/utils";
+import { createSeededRng } from "@/lib/outreach/format";
+import { buildLeadTemplateParams } from "@/lib/outreach/variables";
 
 const TOKEN_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+// Innermost spintax group — must contain a pipe so it never matches a {{ var }} token.
+const SPINTAX_PATTERN = /\{([^{}]*\|[^{}]*)\}/g;
 
 function escapeHtml(value: string) {
   return value
@@ -12,22 +16,29 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;");
 }
 
-function fallbackValue(value?: string | null) {
-  return value && value.trim().length > 0 ? value : "there";
+/**
+ * Resolves spintax {a|b|c} groups deterministically for a given seed, innermost-first
+ * (so nesting works). Same seed + template always yields the same output.
+ */
+export function renderSpintax(template: string, seed: string) {
+  const rng = createSeededRng(seed);
+  let output = template;
+  let guard = 0;
+
+  while (SPINTAX_PATTERN.test(output) && guard < 1000) {
+    SPINTAX_PATTERN.lastIndex = 0;
+    output = output.replace(SPINTAX_PATTERN, (_, group: string) => {
+      const options = group.split("|");
+      const index = Math.floor(rng() * options.length);
+      return options[index] ?? "";
+    });
+    guard += 1;
+  }
+
+  return output;
 }
 
-export function buildLeadTemplateParams(lead: Lead) {
-  return {
-    first_name: fallbackValue(lead.firstName),
-    last_name: fallbackValue(lead.lastName),
-    company: fallbackValue(lead.company),
-    website: fallbackValue(lead.website),
-    industry: fallbackValue(lead.industry),
-    country: fallbackValue(lead.country),
-    linkedin_url: fallbackValue(lead.linkedinUrl),
-    email: lead.email,
-  };
-}
+export { buildLeadTemplateParams };
 
 export function renderTemplate(template: string, params: Record<string, string>) {
   return template.replace(TOKEN_PATTERN, (_, key: string) => params[key] ?? "");
@@ -39,8 +50,10 @@ export function renderSequenceMessage(
   unsubscribeToken: string,
 ) {
   const params = buildLeadTemplateParams(lead);
-  const subject = renderTemplate(step.subject, params);
-  const body = renderTemplate(step.body, params);
+  // Variables first, then spintax — the spintax pattern requires a pipe so it never
+  // collides with {{ tokens }}. Seed with the per-message token for stable randomization.
+  const subject = renderSpintax(renderTemplate(step.subject, params), `${unsubscribeToken}:subject`);
+  const body = renderSpintax(renderTemplate(step.body, params), `${unsubscribeToken}:body`);
   const unsubscribeUrl = absoluteUrl(`/unsubscribe/${unsubscribeToken}`);
 
   const htmlBody = `

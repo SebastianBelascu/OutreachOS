@@ -17,7 +17,7 @@ export default async function UnsubscribePage({ params }: UnsubscribePageProps) 
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <Card className="w-full max-w-xl rounded-[28px] border-white/70 bg-white/95">
+      <Card className="w-full max-w-xl rounded-lg">
         <CardHeader>
           <CardTitle>{result ? "You're unsubscribed" : "Link unavailable"}</CardTitle>
         </CardHeader>

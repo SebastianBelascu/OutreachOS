@@ -56,6 +56,8 @@ export async function createLead(input: unknown, createdById: string) {
       country: normalizeOptional(parsed.country),
       linkedinUrl: normalizeOptional(parsed.linkedinUrl),
       status: parsed.status,
+      bestOffer: normalizeOptional(parsed.bestOffer),
+      priority: parsed.priority ?? null,
       customFields: parsed.customFields as unknown as Prisma.InputJsonValue,
     },
     create: {
@@ -69,6 +71,8 @@ export async function createLead(input: unknown, createdById: string) {
       country: normalizeOptional(parsed.country),
       linkedinUrl: normalizeOptional(parsed.linkedinUrl),
       status: parsed.status,
+      bestOffer: normalizeOptional(parsed.bestOffer),
+      priority: parsed.priority ?? null,
       createdById,
       customFields: parsed.customFields as unknown as Prisma.InputJsonValue,
     },
@@ -77,6 +81,13 @@ export async function createLead(input: unknown, createdById: string) {
   await connectTags(lead.id, parsed.tags);
 
   return lead;
+}
+
+export async function setLeadStatus(leadId: string, status: string) {
+  return prisma.lead.update({
+    where: { id: leadId },
+    data: { status: status as never },
+  });
 }
 
 export async function createLeadNote(input: unknown, authorId: string) {
@@ -90,7 +101,12 @@ export async function createLeadNote(input: unknown, authorId: string) {
   });
 }
 
-export async function getLeadFilters(search?: string, status?: string) {
+export async function getLeadFilters(
+  search?: string,
+  status?: string,
+  offer?: string,
+  priority?: string,
+) {
   const where: Prisma.LeadWhereInput = {};
 
   if (search && search.trim().length > 0) {
@@ -106,12 +122,25 @@ export async function getLeadFilters(search?: string, status?: string) {
     where.status = status as never;
   }
 
+  if (offer && offer !== "ALL") {
+    where.bestOffer = offer;
+  }
+
+  if (priority && priority !== "ALL") {
+    where.priority = priority as never;
+  }
+
   return where;
 }
 
-export async function listLeads(params?: { search?: string; status?: string }) {
+export async function listLeads(params?: {
+  search?: string;
+  status?: string;
+  offer?: string;
+  priority?: string;
+}) {
   return prisma.lead.findMany({
-    where: await getLeadFilters(params?.search, params?.status),
+    where: await getLeadFilters(params?.search, params?.status, params?.offer, params?.priority),
     include: {
       tags: {
         include: {
@@ -157,6 +186,11 @@ export async function getLeadById(leadId: string) {
         orderBy: { scheduledAt: "desc" },
         take: 20,
       },
+      inboundMessages: {
+        where: { direction: "INBOUND" },
+        orderBy: { receivedAt: "desc" },
+        take: 20,
+      },
       suppressions: true,
     },
   });
@@ -167,7 +201,7 @@ export async function importLeadsFromCsv(
   createdById: string,
 ): Promise<LeadImportSummary & { importJobId: string }> {
   const parsed = importRequestSchema.parse(input);
-  const preview = previewLeadImport(parsed.csvText, parsed.defaultTags);
+  const preview = previewLeadImport(parsed.csvText, parsed.defaultTags, parsed.columnMapping);
 
   const importJob = await prisma.importJob.create({
     data: {
@@ -207,6 +241,8 @@ export async function importLeadsFromCsv(
         country: normalizeOptional(row.country),
         linkedinUrl: normalizeOptional(row.linkedinUrl),
         status: row.status,
+        bestOffer: normalizeOptional(row.bestOffer),
+        priority: row.priority ?? null,
         customFields: row.customFields as unknown as Prisma.InputJsonValue,
       },
       create: {
@@ -220,6 +256,8 @@ export async function importLeadsFromCsv(
         country: normalizeOptional(row.country),
         linkedinUrl: normalizeOptional(row.linkedinUrl),
         status: row.status,
+        bestOffer: normalizeOptional(row.bestOffer),
+        priority: row.priority ?? null,
         createdById,
         customFields: row.customFields as unknown as Prisma.InputJsonValue,
       },

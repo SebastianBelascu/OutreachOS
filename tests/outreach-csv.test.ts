@@ -37,3 +37,20 @@ test("previewLeadImport marks duplicate and invalid rows", () => {
   assert.equal(summary.invalidRows, 1);
   assert.equal(summary.errors.length, 1);
 });
+
+test("previewLeadImport maps custom CSV columns into variables", () => {
+  const summary = previewLeadImport(
+    [
+      "full_name,email,segment",
+      "Ana Pop,ana@example.com,ICP-A",
+    ].join("\n"),
+    [],
+    {
+      full_name: "first_name",
+      segment: "custom:segment",
+    },
+  );
+
+  assert.equal(summary.preview[0]?.firstName, "Ana Pop");
+  assert.deepEqual(summary.preview[0]?.customFields, { segment: "ICP-A" });
+});
