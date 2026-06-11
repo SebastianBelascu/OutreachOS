@@ -54,11 +54,21 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
+  // External / public API routes authenticate themselves (cron Bearer, Brevo
+  // webhook Bearer, token-based unsubscribe) and must never be redirected to the
+  // login page — otherwise schedulers and recipients get a 307 to /auth/login.
+  const { pathname } = request.nextUrl;
+  const isPublicApiRoute =
+    pathname.startsWith("/api/cron") ||
+    pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/unsubscribe");
+
   if (
-    request.nextUrl.pathname !== "/" &&
+    pathname !== "/" &&
     !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
+    !isPublicApiRoute &&
+    !pathname.startsWith("/login") &&
+    !pathname.startsWith("/auth")
   ) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
