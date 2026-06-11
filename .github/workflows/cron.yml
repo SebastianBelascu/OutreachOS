@@ -1,0 +1,79 @@
+name: OutreachOS Crons
+
+# Înlocuiește cron-urile din vercel.json. Pe planul Vercel Hobby cron-urile
+# rulează maximum o dată pe zi — aici nu există limita asta (GitHub Actions e gratis).
+# Toate orele sunt UTC, exact ca pe Vercel.
+#
+# Necesită 1 secret în repo (Settings → Secrets and variables → Actions):
+#   CRON_SECRET = aceeași valoare ca CRON_SECRET din env-ul de producție de pe Vercel
+# (URL-ul de bază e public, deci e hardcodat mai jos — nu e secret.)
+
+on:
+  schedule:
+    - cron: "*/5 7-19 * * 1-5" # dispatch + send — în timpul programului, L-V
+    - cron: "*/10 * * * *" # inbox — sync IMAP la fiecare 10 min
+    - cron: "0 * * * *" # health — din oră în oră
+    - cron: "0 6 * * *" # dns — o dată pe zi, la 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Ce endpoint să lovesc manual"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - dispatch
+          - send
+          - inbox
+          - health
+          - dns
+
+# Rulările aceleiași scheme nu se anulează între ele dacă una întârzie.
+concurrency:
+  group: outreach-cron-${{ github.event.schedule || github.event.inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger cron endpoints
+        env:
+          BASE: "https://outreach-os-kohl.vercel.app"
+          SECRET: ${{ secrets.CRON_SECRET }}
+          SCHEDULE: ${{ github.event.schedule }}
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SECRET:-}" ]; then
+            echo "::error::Lipsește secretul CRON_SECRET în repo (Settings → Secrets → Actions)."
+            exit 1
+          fi
+
+          hit() {
+            echo "→ POST /api/cron/outreach/$1"
+            curl -fsS --max-time 90 -X POST \
+              -H "Authorization: Bearer $SECRET" \
+              "$BASE/api/cron/outreach/$1"
+            echo
+          }
+
+          # Rulare manuală (workflow_dispatch)
+          if [ -n "${TARGET:-}" ]; then
+            case "$TARGET" in
+              all) hit dispatch; hit send; hit inbox; hit health; hit dns ;;
+              *)   hit "$TARGET" ;;
+            esac
+            exit 0
+          fi
+
+          # Rulare programată — aleg endpoint-urile după cron-ul care a declanșat
+          case "$SCHEDULE" in
+            "*/5 7-19 * * 1-5") hit dispatch; hit send ;;
+            "*/10 * * * *")     hit inbox ;;
+            "0 * * * *")        hit health ;;
+            "0 6 * * *")        hit dns ;;
+            *) echo "::error::Schedule necunoscut: $SCHEDULE"; exit 1 ;;
+          esac
