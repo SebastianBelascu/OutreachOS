@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getServerEnv } from "@/lib/env";
+import { getBrevoWebhookEnv } from "@/lib/env";
 import { processTransactionalWebhook } from "@/lib/outreach/messages";
 import type { BrevoTransactionalWebhookPayload } from "@/lib/outreach/brevo";
 
 export async function POST(request: Request) {
   const authorization = request.headers.get("authorization");
-  const env = getServerEnv();
+  const env = getBrevoWebhookEnv();
 
   if (authorization !== `Bearer ${env.brevoWebhookBearerToken}`) {
     return NextResponse.json({ error: "Unauthorized webhook request." }, { status: 401 });

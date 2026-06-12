@@ -53,7 +53,7 @@ export default async function DomainsPage() {
             <div>
               <p className="text-sm font-medium">Blocked / setup</p>
               <p className="mt-1 text-2xl font-semibold">{blockedDomains}</p>
-              <p className="text-xs text-muted-foreground">Au nevoie de DNS/Brevo/auth review.</p>
+              <p className="text-xs text-muted-foreground">Au nevoie de DNS/auth review.</p>
             </div>
           </CardContent>
         </Card>

@@ -2,6 +2,7 @@ import type { InboundClassification } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { sendBrevoTransactionalEmail } from "@/lib/outreach/brevo";
+import { sendViaSmtp } from "@/lib/outreach/smtp";
 import { inboxReplyInputSchema } from "@/lib/outreach/validators";
 
 function escapeHtml(value: string) {
@@ -33,18 +34,28 @@ export async function sendInboxReply(input: unknown) {
   const references = [inbound.referencesHeader, inbound.messageId].filter(Boolean).join(" ").trim();
   const htmlContent = `<div style="font-family:Arial,sans-serif;line-height:1.7;color:#171717">${escapeHtml(parsed.body).replace(/\n/g, "<br />")}</div>`;
 
-  const response = await sendBrevoTransactionalEmail({
-    sender: { email: mailbox.fromEmail, name: mailbox.fromName },
-    replyTo: mailbox.replyTo ? { email: mailbox.replyTo } : undefined,
-    to: [{ email: inbound.fromEmail, name: inbound.fromName ?? undefined }],
-    subject,
-    htmlContent,
-    tags: inbound.campaignId ? ["reply", `campaign:${inbound.campaignId}`] : ["reply"],
-    headers: {
-      "In-Reply-To": inbound.messageId,
-      ...(references ? { References: references } : {}),
-    },
-  });
+  const headers = {
+    "In-Reply-To": inbound.messageId,
+    ...(references ? { References: references } : {}),
+  };
+  const useSmtp = mailbox.sendTransport === "SMTP";
+  const response = useSmtp
+    ? await sendViaSmtp({
+        mailbox,
+        to: { email: inbound.fromEmail, name: inbound.fromName ?? undefined },
+        subject,
+        html: htmlContent,
+        headers,
+      })
+    : await sendBrevoTransactionalEmail({
+        sender: { email: mailbox.fromEmail, name: mailbox.fromName },
+        replyTo: mailbox.replyTo ? { email: mailbox.replyTo } : undefined,
+        to: [{ email: inbound.fromEmail, name: inbound.fromName ?? undefined }],
+        subject,
+        htmlContent,
+        tags: inbound.campaignId ? ["reply", `campaign:${inbound.campaignId}`] : ["reply"],
+        headers,
+      });
 
   await prisma.inboundMessage.create({
     data: {

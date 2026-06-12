@@ -176,7 +176,7 @@ export function InternalAppShell({
             </div>
             <Separator orientation="vertical" className="hidden h-6 md:block" />
             <Badge variant="outline" className="hidden h-7 rounded-md md:inline-flex">
-              Brevo + Postgres
+              SMTP + Postgres
             </Badge>
           </header>
 

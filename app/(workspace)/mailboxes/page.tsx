@@ -44,7 +44,7 @@ export default async function MailboxesPage() {
         <DataToolbar actions={<CreateMailboxDialog domains={domains} />}>
           <div>
             <p className="text-sm font-medium">Mailboxes</p>
-            <p className="text-xs text-muted-foreground">Inbox identities, Brevo sending, ramp caps, and rotation health.</p>
+            <p className="text-xs text-muted-foreground">Inbox identities, SMTP sending, ramp caps, and rotation health.</p>
           </div>
         </DataToolbar>
       </div>

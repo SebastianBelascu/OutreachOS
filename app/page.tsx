@@ -36,7 +36,7 @@ export default async function Home() {
               Own the pipeline, own the send, own the data.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/72">
-              OutreachOS centralizes lead ops, campaigns, mailboxes, scheduling, and event tracking on top of Supabase, Postgres, and Brevo.
+              OutreachOS centralizes lead ops, campaigns, mailboxes, scheduling, and event tracking on top of Supabase, Postgres, and SMTP senders.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild className="rounded-full bg-white px-6 text-slate-950 hover:bg-white/90">
@@ -56,7 +56,7 @@ export default async function Home() {
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/50">Infra</p>
-                <p className="mt-2 text-lg font-medium">Brevo delivery, Prisma models, webhook audit trail, internal unsubscribe.</p>
+                <p className="mt-2 text-lg font-medium">SMTP delivery, Prisma models, event audit trail, internal unsubscribe.</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/50">Why it exists</p>

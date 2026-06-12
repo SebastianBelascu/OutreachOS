@@ -5,7 +5,7 @@ Internal outbound operations software for SmartFusion, built on:
 - Next.js App Router
 - Supabase Auth
 - Prisma + PostgreSQL
-- Brevo transactional email
+- Per-mailbox SMTP sending, with optional Brevo API transport
 
 ## What ships in this version
 
@@ -16,8 +16,8 @@ Internal outbound operations software for SmartFusion, built on:
 - Mailbox management for multiple sender identities
 - Campaign creation, sequence-step authoring, lead enrollment, and activation
 - Queue-style dispatch and send cron endpoints
-- Brevo transactional send integration
-- Brevo transactional webhook ingestion with idempotent event storage
+- SMTP sender integration per mailbox
+- Optional Brevo transactional send/webhook ingestion with idempotent event storage
 - Internal unsubscribe flow backed by suppression entries
 - Basic analytics and worker run tracking
 
@@ -30,9 +30,11 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 DATABASE_URL=
 DIRECT_URL=
+APP_BASE_URL=
+MAILBOX_CREDENTIALS_KEY=
+# Optional Brevo API/webhooks
 BREVO_API_KEY=
 BREVO_WEBHOOK_BEARER_TOKEN=
-APP_BASE_URL=
 ```
 
 ## Commands
@@ -66,6 +68,6 @@ npx prisma generate
 
 ## Notes
 
-- Postgres is the source of truth; Brevo is used for delivery and event callbacks.
+- Postgres is the source of truth; SMTP is the default sender, while Brevo remains available as an optional API transport and webhook source.
 - Reply automation is prepared at the data-model level but not yet implemented.
 - `cacheComponents` is disabled in `next.config.ts` because this internal app is request-driven and DB-backed.

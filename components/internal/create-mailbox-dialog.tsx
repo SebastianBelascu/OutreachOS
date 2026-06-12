@@ -75,7 +75,7 @@ export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) 
                 <Info className="mt-0.5 size-4 shrink-0" />
                 <p>
                   Pe scurt: aici bagi inboxul real, gen <strong>andrei@domeniu.ro</strong>.
-                  Brevo trimite mailul, iar reply-urile vin pe adresa asta.
+                  Trimitem prin SMTP-ul acestui inbox, iar reply-urile vin pe aceeasi adresa.
                 </p>
               </div>
             </div>
@@ -157,7 +157,7 @@ export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) 
 
             <Section
               title="3. Status"
-              description="Pana nu verifici domeniul si senderul in Brevo, lasa inboxul Unverified. Il faci Healthy cand e gata de trimitere."
+              description="Pana nu verifici domeniul, SMTP-ul si inboxul, lasa senderul Unverified. Il faci Healthy cand e gata de trimitere."
             >
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -198,21 +198,21 @@ export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) 
 
             <Section
               title="4. Trimitere (transport)"
-              description="Default: Brevo API. Pentru reputatie ca la Instantly, trimite direct prin SMTP-ul inboxului (Gmail/Workspace cu app password, sau relay Brevo). Parola e criptata."
+              description="Default: SMTP direct prin inboxul real (Gmail/Workspace cu app password, host generic, sau relay Brevo daca alegi asta). Parola e criptata."
             >
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <Label>Transport</Label>
-                  <Select name="sendTransport" defaultValue="BREVO">
+                  <Select name="sendTransport" defaultValue="SMTP">
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="BREVO">Brevo API (default)</SelectItem>
-                      <SelectItem value="SMTP">SMTP direct (per inbox)</SelectItem>
+                      <SelectItem value="SMTP">SMTP direct (default)</SelectItem>
+                      <SelectItem value="BREVO">Brevo API (optional)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <HelpText>Daca alegi SMTP, completeaza host/user/parola mai jos.</HelpText>
+                  <HelpText>Pentru SMTP completeaza host/user/parola mai jos. Brevo API ramane optiune daca vrei tracking prin webhook.</HelpText>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="smtpHost">SMTP host</Label>
@@ -224,7 +224,7 @@ export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) 
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="smtpUsername">SMTP username</Label>
-                  <Input id="smtpUsername" name="smtpUsername" placeholder="full email / brevo login" />
+                  <Input id="smtpUsername" name="smtpUsername" placeholder="full email / SMTP login" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="smtpPassword">SMTP password</Label>
@@ -242,15 +242,15 @@ export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Provider</Label>
-                  <Select name="provider" defaultValue="BREVO_HOSTED">
+                  <Select name="provider" defaultValue="EMAIL_HOST">
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="BREVO_HOSTED">Brevo + inbox host</SelectItem>
                       <SelectItem value="EMAIL_HOST">Email host</SelectItem>
                       <SelectItem value="GOOGLE_WORKSPACE">Google Workspace</SelectItem>
                       <SelectItem value="MICROSOFT_365">Microsoft 365</SelectItem>
+                      <SelectItem value="BREVO_HOSTED">Brevo + inbox host</SelectItem>
                       <SelectItem value="OTHER">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -263,7 +263,7 @@ export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) 
                   <p className="text-xs font-medium text-foreground">IMAP — pentru Unibox & detectarea raspunsurilor</p>
                   <HelpText>
                     Completeaza ca sa citim inboxul si sa oprim automat secventa cand cineva raspunde.
-                    Pentru Brevo: host <strong>imap.brevo.com</strong>, port 993, user = adresa completa.
+                    Pentru Brevo optional: host <strong>imap.brevo.com</strong>, port 993, user = adresa completa.
                     Parola e criptata si nu mai apare niciodata in platforma.
                   </HelpText>
                 </div>

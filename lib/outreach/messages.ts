@@ -23,7 +23,7 @@ import {
   getMailboxRampCap,
   usageDateForMailbox,
 } from "@/lib/outreach/mailboxes";
-import { SmtpSendError, isSmtpConfigured, sendViaSmtp } from "@/lib/outreach/smtp";
+import { SmtpSendError, sendViaSmtp } from "@/lib/outreach/smtp";
 import type { DispatchSummary, SendSummary, SendWindow } from "@/lib/outreach/types";
 import { absoluteUrl } from "@/lib/utils";
 
@@ -299,9 +299,9 @@ export async function sendClaimedMessages(limit = 8): Promise<SendSummary> {
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       };
 
-      // Route through the mailbox's own SMTP server when configured (sends with the
-      // inbox's warmed reputation); otherwise fall back to the Brevo transactional API.
-      const useSmtp = message.mailbox.sendTransport === "SMTP" && isSmtpConfigured(message.mailbox);
+      // Route through the selected mailbox transport. SMTP is the default;
+      // Brevo is used only when explicitly selected for the mailbox.
+      const useSmtp = message.mailbox.sendTransport === "SMTP";
       const response = useSmtp
         ? await sendViaSmtp({
             mailbox: message.mailbox,

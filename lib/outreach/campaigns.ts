@@ -83,7 +83,7 @@ export async function createMailbox(input: unknown) {
   const smtpPassword = parsed.smtpPassword?.trim() || "";
   const smtpConfigured = Boolean(parsed.smtpHost && parsed.smtpUsername && smtpPassword);
   const smtpPasswordEnc = smtpPassword && hasCredentialsKey() ? encryptSecret(smtpPassword) : null;
-  // Use SMTP automatically when its credentials are present, unless explicitly overridden.
+  // SMTP is the default sender. Brevo remains available when explicitly selected.
   const sendTransport = parsed.sendTransport === "SMTP" || (smtpConfigured && parsed.sendTransport !== "BREVO")
     ? "SMTP"
     : "BREVO";

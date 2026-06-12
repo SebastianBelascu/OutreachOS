@@ -1,4 +1,4 @@
-import { getServerEnv } from "@/lib/env";
+import { getBrevoSendEnv } from "@/lib/env";
 
 export interface BrevoSendPayload {
   sender: {
@@ -36,7 +36,7 @@ export class BrevoSendError extends Error {
 }
 
 export async function sendBrevoTransactionalEmail(payload: BrevoSendPayload) {
-  const env = getServerEnv();
+  const env = getBrevoSendEnv();
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",

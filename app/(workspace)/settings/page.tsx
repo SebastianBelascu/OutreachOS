@@ -6,9 +6,13 @@ import { hasRequiredServerEnv } from "@/lib/env";
 const REQUIRED_ITEMS = [
   "DATABASE_URL",
   "DIRECT_URL",
+  "APP_BASE_URL",
+];
+
+const OPTIONAL_ITEMS = [
+  "MAILBOX_CREDENTIALS_KEY",
   "BREVO_API_KEY",
   "BREVO_WEBHOOK_BEARER_TOKEN",
-  "APP_BASE_URL",
 ];
 
 export default async function SettingsPage() {
@@ -31,7 +35,15 @@ export default async function SettingsPage() {
               <div key={item} className="rounded-md border bg-muted/30 p-4">
                 <p className="font-medium">{item}</p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Configure this before enabling live sending or Brevo webhooks.
+                  Configure this before enabling the app runtime.
+                </p>
+              </div>
+            ))}
+            {OPTIONAL_ITEMS.map((item) => (
+              <div key={item} className="rounded-md border bg-muted/30 p-4">
+                <p className="font-medium">{item}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Needed for SMTP credential encryption or optional Brevo API/webhooks.
                 </p>
               </div>
             ))}

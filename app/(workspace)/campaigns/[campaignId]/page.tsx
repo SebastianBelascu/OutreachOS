@@ -243,7 +243,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
               {campaign.events.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="h-28 text-center text-muted-foreground">
-                    No Brevo events received yet.
+                    No delivery events received yet.
                   </TableCell>
                 </TableRow>
               ) : null}

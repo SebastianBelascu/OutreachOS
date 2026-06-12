@@ -244,7 +244,7 @@ model Mailbox {
   name                    String
   fromEmail               String                  @unique
   fromName                String
-  provider                MailboxProvider         @default(BREVO_HOSTED)
+  provider                MailboxProvider         @default(EMAIL_HOST)
   hostLabel               String?
   localPart               String?
   replyTo                 String?
@@ -258,7 +258,7 @@ model Mailbox {
   warmupState             MailboxWarmupState      @default(COLD)
   healthStatus            MailboxHealthStatus     @default(UNVERIFIED)
   hourlyCap               Int                     @default(8)
-  sendTransport           String                  @default("BREVO")
+  sendTransport           String                  @default("SMTP")
   smtpHost                String?
   smtpPort                Int                     @default(587)
   smtpSecure              Boolean                 @default(false)

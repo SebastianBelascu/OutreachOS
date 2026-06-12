@@ -44,7 +44,7 @@ export function DomainSetupChecklist({
       : null;
 
   const rows = [
-    { key: "spf", label: "SPF authorizes Brevo" },
+    { key: "spf", label: "SPF authorizes sender" },
     { key: "dkim", label: "DKIM record present" },
     { key: "dmarc", label: "DMARC policy" },
     { key: "mx", label: "MX records" },

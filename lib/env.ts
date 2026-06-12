@@ -1,8 +1,6 @@
 const requiredServerEnv = [
   "DATABASE_URL",
   "DIRECT_URL",
-  "BREVO_API_KEY",
-  "BREVO_WEBHOOK_BEARER_TOKEN",
   "APP_BASE_URL",
 ] as const;
 
@@ -19,9 +17,7 @@ export function getServerEnv() {
   return {
     databaseUrl: readEnvValue(requiredServerEnv[0]),
     directUrl: readEnvValue(requiredServerEnv[1]),
-    brevoApiKey: readEnvValue(requiredServerEnv[2]),
-    brevoWebhookBearerToken: readEnvValue(requiredServerEnv[3]),
-    appBaseUrl: readEnvValue(requiredServerEnv[4]),
+    appBaseUrl: readEnvValue(requiredServerEnv[2]),
   };
 }
 
@@ -30,6 +26,18 @@ export function hasRequiredServerEnv() {
     const value = process.env[key];
     return Boolean(value && value.trim().length > 0);
   });
+}
+
+export function getBrevoSendEnv() {
+  return {
+    brevoApiKey: readEnvValue("BREVO_API_KEY"),
+  };
+}
+
+export function getBrevoWebhookEnv() {
+  return {
+    brevoWebhookBearerToken: readEnvValue("BREVO_WEBHOOK_BEARER_TOKEN"),
+  };
 }
 
 function readOptionalNumber(key: string, fallback: number) {

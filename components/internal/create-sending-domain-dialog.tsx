@@ -35,7 +35,7 @@ export function CreateSendingDomainDialog() {
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Add sending domain</DialogTitle>
-          <DialogDescription>Track DNS, Brevo auth, and inbox readiness before campaigns send.</DialogDescription>
+          <DialogDescription>Track DNS auth and inbox readiness before campaigns send.</DialogDescription>
         </DialogHeader>
         <form action={createSendingDomainAction} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
