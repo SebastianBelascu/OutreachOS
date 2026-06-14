@@ -19,9 +19,13 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCampaignProgressSnapshot, getVariantPerformance } from "@/lib/outreach/analytics";
-import { getCampaignById } from "@/lib/outreach/campaigns";
+import { campaignSequenceText, getCampaignById } from "@/lib/outreach/campaigns";
 import { listLeads } from "@/lib/outreach/leads";
-import { buildLeadTemplateParams } from "@/lib/outreach/variables";
+import {
+  buildLeadTemplateParams,
+  findMissingPersonalization,
+  REQUIRED_PERSONALIZATION_VARIABLES,
+} from "@/lib/outreach/variables";
 import { formatDateTime } from "@/lib/utils";
 
 interface CampaignDetailPageProps {
@@ -52,6 +56,22 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
     ["SENT", "DELIVERED", "OPENED", "CLICKED"].includes(message.status),
   ).length;
 
+  // Leads enrolled but never scheduled because the sequence needs personalization
+  // (e.g. {{first_line}}) they don't have yet. They won't be emailed until it's filled in.
+  const sequenceText = campaignSequenceText(campaign.steps);
+  const heldEnrollmentIds = new Set(
+    campaign.enrollments
+      .filter(
+        (enrollment) =>
+          enrollment.status === "ACTIVE" &&
+          enrollment.messages.length === 0 &&
+          findMissingPersonalization(sequenceText, buildLeadTemplateParams(enrollment.lead)).length > 0,
+      )
+      .map((enrollment) => enrollment.id),
+  );
+  const heldLeads = campaign.enrollments.filter((enrollment) => heldEnrollmentIds.has(enrollment.id));
+  const requiredVarTokens = REQUIRED_PERSONALIZATION_VARIABLES.map((key) => `{{${key}}}`).join(", ");
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between">
@@ -69,6 +89,22 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
           <AddSequenceStepDialog campaignId={campaign.id} previewLeads={previewLeads} />
         </div>
       </div>
+
+      {heldLeads.length > 0 ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-medium">
+            {heldLeads.length} {heldLeads.length === 1 ? "lead is" : "leads are"} on hold — missing personalization ({requiredVarTokens}).
+          </p>
+          <p className="mt-1 text-amber-800">
+            They stay enrolled but won&apos;t be emailed until you add the personalization line. Fill it in on the lead, then
+            re-add them here to schedule.
+          </p>
+          <p className="mt-2 truncate text-xs text-amber-700">
+            {heldLeads.slice(0, 8).map((enrollment) => enrollment.lead.email).join(", ")}
+            {heldLeads.length > 8 ? ` +${heldLeads.length - 8} more` : ""}
+          </p>
+        </div>
+      ) : null}
 
       <CampaignProgressRail progress={progress} />
 
@@ -157,6 +193,11 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={enrollment.status} />
+                    {heldEnrollmentIds.has(enrollment.id) ? (
+                      <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
+                        On hold — needs {requiredVarTokens}
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell>{enrollment.nextStepOrder}</TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground">

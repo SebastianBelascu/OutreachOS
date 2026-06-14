@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { generateFirstLine } from "@/lib/outreach/ai";
 import { previewLeadImport } from "@/lib/outreach/csv";
 import { normalizeEmail } from "@/lib/outreach/format";
 import type { LeadImportSummary } from "@/lib/outreach/types";
@@ -88,6 +89,66 @@ export async function setLeadStatus(leadId: string, status: string) {
     where: { id: leadId },
     data: { status: status as never },
   });
+}
+
+function asCustomFields(value: Prisma.JsonValue | null): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+export function readFirstLine(customFields: Prisma.JsonValue | null): string | null {
+  const value = asCustomFields(customFields).first_line;
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+/** Merges a generated personalization line into the lead's customFields.first_line. */
+export async function setLeadFirstLine(leadId: string, firstLine: string) {
+  const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { customFields: true } });
+  if (!lead) {
+    throw new Error("Lead not found.");
+  }
+  const customFields = { ...asCustomFields(lead.customFields), first_line: firstLine };
+  return prisma.lead.update({
+    where: { id: leadId },
+    data: { customFields: customFields as unknown as Prisma.InputJsonValue },
+  });
+}
+
+/** Generates and stores {{first_line}} for one lead. Returns whether a line was produced. */
+export async function generateLeadFirstLine(leadId: string) {
+  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+  if (!lead) {
+    throw new Error("Lead not found.");
+  }
+  const line = await generateFirstLine(lead);
+  if (!line) {
+    return { leadId, generated: false as const };
+  }
+  await setLeadFirstLine(leadId, line);
+  return { leadId, generated: true as const, firstLine: line };
+}
+
+/**
+ * Generates {{first_line}} for up to `limit` leads that don't have one yet, skipping
+ * suppressed leads. Runs sequentially to stay well under OpenAI rate limits.
+ */
+export async function generateMissingFirstLines(limit = 50) {
+  const leads = await prisma.lead.findMany({
+    where: { suppressions: { none: {} } },
+    orderBy: { updatedAt: "desc" },
+    take: 500,
+  });
+  const targets = leads.filter((lead) => !readFirstLine(lead.customFields)).slice(0, Math.max(1, limit));
+
+  let generated = 0;
+  for (const lead of targets) {
+    const line = await generateFirstLine(lead);
+    if (line) {
+      await setLeadFirstLine(lead.id, line);
+      generated += 1;
+    }
+  }
+
+  return { attempted: targets.length, generated };
 }
 
 export async function createLeadNote(input: unknown, authorId: string) {

@@ -67,6 +67,9 @@ const BUILT_IN_TARGETS = new Set([
   "linkedin_url",
   "status",
   "tags",
+  "first_line",
+  "observation",
+  "entry_offer",
 ]);
 
 function selectValueForTarget(target: string) {
@@ -225,6 +228,10 @@ export function LeadImporter() {
               <div className="rounded-md border bg-muted/25 p-4 text-sm text-muted-foreground">
                 Detected columns: {result?.columns.join(", ") || "Run preview first"}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Map your personalization column to <span className="font-medium">Personalization line</span> so it fills{" "}
+                {"{{first_line}}"} in every email (incl. the SDR sequences).
+              </p>
               {result?.columns.length ? (
                 <div className="space-y-2">
                   {result.columns.map((column) => (
@@ -258,6 +265,9 @@ export function LeadImporter() {
                           <SelectItem value="linkedin_url">LinkedIn URL</SelectItem>
                           <SelectItem value="status">Status</SelectItem>
                           <SelectItem value="tags">Tags</SelectItem>
+                          <SelectItem value="first_line">{"Personalization line → {{first_line}}"}</SelectItem>
+                          <SelectItem value="observation">{"Observation → {{observation}}"}</SelectItem>
+                          <SelectItem value="entry_offer">{"Entry offer → {{entry_offer}}"}</SelectItem>
                           <SelectItem value="custom:auto">Custom variable</SelectItem>
                         </SelectContent>
                       </Select>

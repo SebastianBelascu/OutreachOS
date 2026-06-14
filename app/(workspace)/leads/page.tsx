@@ -24,6 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { generateMissingFirstLinesAction } from "@/app/(workspace)/actions";
+import { isAiConfigured } from "@/lib/outreach/ai";
 import { CAMPAIGN_OFFERS, LEAD_PRIORITIES, LEAD_STATUSES } from "@/lib/outreach/constants";
 import { listLeads } from "@/lib/outreach/leads";
 import { formatDateTime } from "@/lib/utils";
@@ -52,6 +54,13 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
       <DataToolbar
         actions={
           <>
+            {isAiConfigured() ? (
+              <form action={generateMissingFirstLinesAction}>
+                <Button type="submit" variant="outline" size="sm">
+                  Generate personalization (AI)
+                </Button>
+              </form>
+            ) : null}
             <LeadImporter />
             <AddLeadDialog />
           </>

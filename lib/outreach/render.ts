@@ -44,6 +44,18 @@ export function renderTemplate(template: string, params: Record<string, string>)
   return template.replace(TOKEN_PATTERN, (_, key: string) => params[key] ?? "");
 }
 
+/**
+ * Tidies whitespace left behind when an optional variable (e.g. {{observation}})
+ * resolves to an empty string: trailing spaces are stripped and 3+ consecutive
+ * newlines collapse to a single blank line, so the email never shows an awkward gap.
+ */
+export function collapseBlankLines(text: string) {
+  return text
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function renderSequenceMessage(
   step: Pick<SequenceStep, "subject" | "body">,
   lead: Lead,
@@ -52,8 +64,10 @@ export function renderSequenceMessage(
   const params = buildLeadTemplateParams(lead);
   // Variables first, then spintax — the spintax pattern requires a pipe so it never
   // collides with {{ tokens }}. Seed with the per-message token for stable randomization.
-  const subject = renderSpintax(renderTemplate(step.subject, params), `${unsubscribeToken}:subject`);
-  const body = renderSpintax(renderTemplate(step.body, params), `${unsubscribeToken}:body`);
+  const subject = renderSpintax(renderTemplate(step.subject, params), `${unsubscribeToken}:subject`).trim();
+  const body = collapseBlankLines(
+    renderSpintax(renderTemplate(step.body, params), `${unsubscribeToken}:body`),
+  );
   const unsubscribeUrl = absoluteUrl(`/unsubscribe/${unsubscribeToken}`);
 
   const htmlBody = `

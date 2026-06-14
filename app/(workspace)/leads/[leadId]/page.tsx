@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { createLeadNoteAction } from "@/app/(workspace)/actions";
+import { createLeadNoteAction, generateLeadFirstLineAction } from "@/app/(workspace)/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { getLeadById } from "@/lib/outreach/leads";
+import { isAiConfigured } from "@/lib/outreach/ai";
+import { getLeadById, readFirstLine } from "@/lib/outreach/leads";
 import { formatDateTime } from "@/lib/utils";
 
 interface LeadDetailPageProps {
@@ -22,6 +23,9 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   if (!lead) {
     notFound();
   }
+
+  const firstLine = readFirstLine(lead.customFields);
+  const aiReady = isAiConfigured();
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -58,6 +62,28 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Active suppressions</p>
             <p className="mt-2 text-slate-600">
               {lead.suppressions.map((entry) => entry.reason).join(", ") || "None"}
+            </p>
+          </div>
+          <div className="rounded-md border bg-muted/20 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                Personalization · {"{{first_line}}"}
+              </p>
+              {aiReady ? (
+                <form action={generateLeadFirstLineAction}>
+                  <input type="hidden" name="leadId" value={lead.id} />
+                  <Button type="submit" size="sm" variant="outline">
+                    {firstLine ? "Regenerate with AI" : "Generate with AI"}
+                  </Button>
+                </form>
+              ) : null}
+            </div>
+            <p className="mt-2 whitespace-pre-line text-slate-700">
+              {firstLine ?? (
+                <span className="text-slate-400">
+                  No personalization yet{aiReady ? " — generate one or add it on import." : ". Set OPENAI_API_KEY to enable AI generation."}
+                </span>
+              )}
             </p>
           </div>
         </CardContent>

@@ -12,6 +12,7 @@ import {
 import { mailboxLocalPartFromEmail } from "@/lib/outreach/mailboxes";
 import { encryptSecret, hasCredentialsKey } from "@/lib/outreach/crypto";
 import { renderSequenceMessage } from "@/lib/outreach/render";
+import { buildLeadTemplateParams, findMissingPersonalization } from "@/lib/outreach/variables";
 import {
   campaignEnrollmentInputSchema,
   campaignInputSchema,
@@ -269,6 +270,7 @@ export async function getCampaignById(campaignId: string) {
       enrollments: {
         include: {
           lead: true,
+          messages: { select: { id: true }, take: 1 },
         },
         orderBy: { enrolledAt: "desc" },
       },
@@ -401,6 +403,22 @@ export async function enrollLeadsInCampaign(input: unknown) {
   return createdEnrollments;
 }
 
+/**
+ * All copy a lead could receive from a campaign — every step's subject/body plus any
+ * variant copy. Used to detect which personalization variables the sequence relies on.
+ */
+export function campaignSequenceText(
+  steps: { subject: string; body: string; variants?: { subject: string; body: string }[] }[],
+) {
+  return steps
+    .flatMap((step) => [
+      step.subject,
+      step.body,
+      ...(step.variants ?? []).flatMap((variant) => [variant.subject, variant.body]),
+    ])
+    .join("\n");
+}
+
 export async function scheduleEnrollmentMessages(campaignId: string) {
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
@@ -451,8 +469,24 @@ export async function scheduleEnrollmentMessages(campaignId: string) {
     throw new Error("Campaign requires at least one sequence step.");
   }
 
+  // Personalization the sequence relies on (e.g. {{first_line}}). Leads that can't fill
+  // it are held back — they stay enrolled (ACTIVE) but unscheduled, so once the operator
+  // adds the value a later schedule run picks them up automatically.
+  const sequenceText = campaignSequenceText(campaign.steps);
+  let scheduledCount = 0;
+  const heldLeadIds: string[] = [];
+
   for (const enrollment of campaign.enrollments) {
     if (enrollment.messages.length > 0) {
+      continue;
+    }
+
+    const missingPersonalization = findMissingPersonalization(
+      sequenceText,
+      buildLeadTemplateParams(enrollment.lead),
+    );
+    if (missingPersonalization.length > 0) {
+      heldLeadIds.push(enrollment.leadId);
       continue;
     }
 
@@ -514,7 +548,11 @@ export async function scheduleEnrollmentMessages(campaignId: string) {
         },
       });
     }
+
+    scheduledCount += 1;
   }
+
+  return { scheduledCount, heldLeadIds };
 }
 
 export async function activateCampaign(campaignId: string) {

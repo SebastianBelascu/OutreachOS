@@ -16,7 +16,13 @@ import {
   toggleSequenceStepVariant,
 } from "@/lib/outreach/campaigns";
 import { requireAppUser } from "@/lib/outreach/auth";
-import { createLead, createLeadNote, setLeadStatus } from "@/lib/outreach/leads";
+import {
+  createLead,
+  createLeadNote,
+  generateLeadFirstLine,
+  generateMissingFirstLines,
+  setLeadStatus,
+} from "@/lib/outreach/leads";
 import {
   archiveInbound,
   markInboundRead,
@@ -292,6 +298,29 @@ export async function enrollLeadsAction(formData: FormData) {
 
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath("/campaigns");
+}
+
+export async function generateLeadFirstLineAction(formData: FormData) {
+  const appUser = await requireAppUser();
+  if (!appUser) {
+    throw new Error("Authentication required.");
+  }
+  const leadId = requireValue(formData.get("leadId"), "Lead");
+  await generateLeadFirstLine(leadId);
+
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/leads");
+}
+
+export async function generateMissingFirstLinesAction(formData: FormData) {
+  const appUser = await requireAppUser();
+  if (!appUser) {
+    throw new Error("Authentication required.");
+  }
+  const limit = Number(formData.get("limit") ?? "50");
+  await generateMissingFirstLines(Number.isFinite(limit) && limit > 0 ? limit : 50);
+
+  revalidatePath("/leads");
 }
 
 export async function markInboundReadAction(formData: FormData) {

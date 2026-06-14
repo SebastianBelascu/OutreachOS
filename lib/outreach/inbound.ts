@@ -1,6 +1,7 @@
 import { Prisma, type InboundClassification, type LeadStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { classifyInboundWithAi, isAiConfigured } from "@/lib/outreach/ai";
 import { stopLeadInCampaign } from "@/lib/outreach/campaigns";
 import { classifyInbound } from "@/lib/outreach/classify";
 import { normalizeEmail, textFromHtml } from "@/lib/outreach/format";
@@ -131,12 +132,28 @@ const HUMAN_REPLY: InboundClassification[] = ["INTERESTED", "NOT_INTERESTED", "N
 export async function ingestInboundMessage(raw: RawInboundMessage) {
   const outbound = await matchOutbound(raw);
   const cleanedText = cleanReplyText(raw.text, raw.html);
-  const classification = classifyInbound({
+  const ruleClassification = classifyInbound({
     fromEmail: raw.fromEmail,
     subject: raw.subject,
     text: cleanedText,
     headers: raw.headers,
   });
+
+  // Rules own the reliable, side-effect-bearing buckets (bounce, OOO, auto-reply,
+  // unsubscribe). For the fuzzy human-sentiment buckets, let the LLM sharpen the verdict.
+  let classification = ruleClassification;
+  let classificationSource = "rules";
+  if (
+    outbound?.leadId &&
+    ["INTERESTED", "NOT_INTERESTED", "NEUTRAL"].includes(ruleClassification) &&
+    isAiConfigured()
+  ) {
+    const aiClassification = await classifyInboundWithAi({ subject: raw.subject, text: cleanedText });
+    if (aiClassification) {
+      classification = aiClassification;
+      classificationSource = "openai";
+    }
+  }
 
   let inbound;
   try {
@@ -158,7 +175,7 @@ export async function ingestInboundMessage(raw: RawInboundMessage) {
         cleanedText,
         snippet: cleanedText.slice(0, 140),
         classification,
-        classificationSource: "rules",
+        classificationSource,
         receivedAt: raw.receivedAt,
       },
     });
