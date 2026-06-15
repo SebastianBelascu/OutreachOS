@@ -41,10 +41,19 @@ function buildTransport(mailbox: SmtpMailboxConfig) {
     throw new SmtpSendError("SMTP is not configured for this mailbox.", false);
   }
 
+  // Implicit TLS is only correct on port 465. On 587/25 the server greets in
+  // plaintext and upgrades via STARTTLS, so `secure` must be false there. We
+  // derive it from the port rather than trusting the stored `smtpSecure` flag,
+  // which is easy to mis-set: a 587 mailbox with secure=true fails the TLS
+  // handshake with "wrong version number". requireTLS keeps STARTTLS mandatory
+  // (never silently falls back to plaintext) on the non-implicit ports.
+  const secure = mailbox.smtpPort === 465;
+
   return nodemailer.createTransport({
     host: mailbox.smtpHost as string,
     port: mailbox.smtpPort,
-    secure: mailbox.smtpSecure, // true for 465, false for 587 (STARTTLS)
+    secure,
+    requireTLS: !secure,
     auth: {
       user: mailbox.smtpUsername as string,
       pass: decryptSecret(mailbox.smtpPasswordEnc as string),

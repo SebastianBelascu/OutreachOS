@@ -88,13 +88,18 @@ export function AddSequenceStepDialog({ campaignId, previewLeads = [] }: AddSequ
           Add step
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Add sequence step</DialogTitle>
           <DialogDescription>Write with variables, preview against a real lead, and catch missing fields before launch.</DialogDescription>
         </DialogHeader>
         <form action={createSequenceStepAction} className="space-y-4">
           <input type="hidden" name="campaignId" value={campaignId} />
+          {/* Radix unmounts the inactive tab, so the Write-tab inputs vanish from the
+              DOM when you submit from Preview/Variables. These always-mounted hidden
+              fields carry the controlled values so the step submits from any tab. */}
+          <input type="hidden" name="subject" value={subject} />
+          <input type="hidden" name="body" value={body} />
           <Tabs defaultValue="write" className="space-y-4">
             <TabsList>
               <TabsTrigger value="write">Write</TabsTrigger>
@@ -104,13 +109,12 @@ export function AddSequenceStepDialog({ campaignId, previewLeads = [] }: AddSequ
             <TabsContent value="write" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="subject">Subject</Label>
-                <Input id="subject" name="subject" value={subject} onChange={(event) => setSubject(event.target.value)} required />
+                <Input id="subject" value={subject} onChange={(event) => setSubject(event.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="body">Body</Label>
                 <Textarea
                   id="body"
-                  name="body"
                   className="min-h-[220px]"
                   value={body}
                   onChange={(event) => setBody(event.target.value)}
@@ -135,7 +139,7 @@ export function AddSequenceStepDialog({ campaignId, previewLeads = [] }: AddSequ
                   </SelectContent>
                 </Select>
               </div>
-              <div className="rounded-md border bg-muted/20 p-4">
+              <div className="max-h-[45vh] overflow-y-auto rounded-md border bg-muted/20 p-4">
                 <p className="text-sm font-semibold">{renderClientPreview(subject, previewLead.params)}</p>
                 <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">
                   {renderClientPreview(body, previewLead.params)}

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { generateFirstLine } from "@/lib/outreach/ai";
 import { previewLeadImport } from "@/lib/outreach/csv";
 import { normalizeEmail } from "@/lib/outreach/format";
-import type { LeadImportSummary } from "@/lib/outreach/types";
+import type { LeadImportPreviewRow, LeadImportSummary } from "@/lib/outreach/types";
 import {
   importRequestSchema,
   leadInputSchema,
@@ -13,6 +13,24 @@ import {
 
 function normalizeOptional(value?: string) {
   return value && value.trim().length > 0 ? value.trim() : null;
+}
+
+/** Shared column mapping for both the create and update sides of a lead upsert. */
+function leadWriteData(row: LeadImportPreviewRow) {
+  return {
+    firstName: normalizeOptional(row.firstName),
+    lastName: normalizeOptional(row.lastName),
+    email: row.email,
+    company: normalizeOptional(row.company),
+    website: normalizeOptional(row.website),
+    industry: normalizeOptional(row.industry),
+    country: normalizeOptional(row.country),
+    linkedinUrl: normalizeOptional(row.linkedinUrl),
+    status: row.status,
+    bestOffer: normalizeOptional(row.bestOffer),
+    priority: row.priority ?? null,
+    customFields: row.customFields as unknown as Prisma.InputJsonValue,
+  };
 }
 
 async function connectTags(leadId: string, tags: string[]) {
@@ -282,55 +300,89 @@ export async function importLeadsFromCsv(
     };
   }
 
+  const rows = preview.preview;
   let importedRows = 0;
   let updatedRows = 0;
 
-  for (const row of preview.preview) {
-    const existingLead = await prisma.lead.findUnique({
-      where: { normalizedEmail: row.dedupeKey },
+  try {
+    // Which leads already exist? One read instead of a findUnique per row.
+    const existing = await prisma.lead.findMany({
+      where: { normalizedEmail: { in: rows.map((row) => row.dedupeKey) } },
+      select: { normalizedEmail: true },
     });
+    const existingKeys = new Set(existing.map((lead) => lead.normalizedEmail));
 
-    const lead = await prisma.lead.upsert({
-      where: { normalizedEmail: row.dedupeKey },
-      update: {
-        firstName: normalizeOptional(row.firstName),
-        lastName: normalizeOptional(row.lastName),
-        email: row.email,
-        company: normalizeOptional(row.company),
-        website: normalizeOptional(row.website),
-        industry: normalizeOptional(row.industry),
-        country: normalizeOptional(row.country),
-        linkedinUrl: normalizeOptional(row.linkedinUrl),
-        status: row.status,
-        bestOffer: normalizeOptional(row.bestOffer),
-        priority: row.priority ?? null,
-        customFields: row.customFields as unknown as Prisma.InputJsonValue,
-      },
-      create: {
-        firstName: normalizeOptional(row.firstName),
-        lastName: normalizeOptional(row.lastName),
-        email: row.email,
-        normalizedEmail: row.dedupeKey,
-        company: normalizeOptional(row.company),
-        website: normalizeOptional(row.website),
-        industry: normalizeOptional(row.industry),
-        country: normalizeOptional(row.country),
-        linkedinUrl: normalizeOptional(row.linkedinUrl),
-        status: row.status,
-        bestOffer: normalizeOptional(row.bestOffer),
-        priority: row.priority ?? null,
-        createdById,
-        customFields: row.customFields as unknown as Prisma.InputJsonValue,
-      },
-    });
-
-    await connectTags(lead.id, row.tags);
-
-    if (existingLead) {
-      updatedRows += 1;
-    } else {
-      importedRows += 1;
+    // Create every distinct tag once and resolve their ids in a single read.
+    // The old path upserted each tag + assignment per row, so a 120-row import
+    // fired ~960 sequential queries and blew the serverless time budget,
+    // dying mid-loop (the ImportJob stayed PENDING with a partial DB write).
+    const uniqueTags = [...new Set(rows.flatMap((row) => row.tags))];
+    if (uniqueTags.length > 0) {
+      await prisma.leadTag.createMany({
+        data: uniqueTags.map((name) => ({ name })),
+        skipDuplicates: true,
+      });
     }
+    const tagRecords = uniqueTags.length
+      ? await prisma.leadTag.findMany({
+          where: { name: { in: uniqueTags } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const tagIdByName = new Map(tagRecords.map((tag) => [tag.name, tag.id]));
+
+    // Upsert leads in small concurrent batches: low wall-clock without
+    // exhausting the connection pool. Tag links are collected for one bulk write.
+    const CHUNK = 10;
+    const assignments: { leadId: string; tagId: string }[] = [];
+
+    for (let start = 0; start < rows.length; start += CHUNK) {
+      const chunk = rows.slice(start, start + CHUNK);
+      const upserted = await Promise.all(
+        chunk.map((row) =>
+          prisma.lead.upsert({
+            where: { normalizedEmail: row.dedupeKey },
+            update: leadWriteData(row),
+            create: { ...leadWriteData(row), normalizedEmail: row.dedupeKey, createdById },
+          }),
+        ),
+      );
+
+      upserted.forEach((lead, index) => {
+        const row = chunk[index];
+        if (existingKeys.has(row.dedupeKey)) {
+          updatedRows += 1;
+        } else {
+          importedRows += 1;
+        }
+        for (const tagName of row.tags) {
+          const tagId = tagIdByName.get(tagName);
+          if (tagId) {
+            assignments.push({ leadId: lead.id, tagId });
+          }
+        }
+      });
+    }
+
+    if (assignments.length > 0) {
+      await prisma.leadTagAssignment.createMany({ data: assignments, skipDuplicates: true });
+    }
+  } catch (error) {
+    // Record the partial outcome instead of leaving the job stuck on PENDING.
+    await prisma.importJob.update({
+      where: { id: importJob.id },
+      data: {
+        status: "FAILED",
+        completedAt: new Date(),
+        summary: {
+          ...preview,
+          importedRows,
+          updatedRows,
+          errors: [...preview.errors, error instanceof Error ? error.message : "Import failed."],
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
+    throw error;
   }
 
   const summary = {

@@ -21,7 +21,7 @@ const TOKEN_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
 // Personalization variables the operator writes/imports per lead. When a sequence
 // references one but the lead has no value, the lead is HELD (not emailed) instead of
 // receiving a half-empty message — see findMissingPersonalization + scheduleEnrollmentMessages.
-export const REQUIRED_PERSONALIZATION_VARIABLES = ["first_line"] as const;
+export const REQUIRED_PERSONALIZATION_VARIABLES = ["first_line", "company"] as const;
 
 // Mailbox-style local parts that are roles, not people — never treat as a first name.
 const GENERIC_LOCAL_PARTS = new Set([

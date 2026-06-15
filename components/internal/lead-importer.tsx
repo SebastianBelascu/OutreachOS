@@ -82,12 +82,28 @@ function selectValueForTarget(target: string) {
 
 export function LeadImporter() {
   const [csvText, setCsvText] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
   const [tags, setTags] = useState("");
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<"preview" | "import">("preview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    setError(null);
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCsvText(typeof reader.result === "string" ? reader.result : "");
+    };
+    reader.onerror = () => setError("Could not read the file.");
+    reader.readAsText(file);
+  }
 
   async function submit(nextMode: "preview" | "import") {
     setMode(nextMode);
@@ -102,6 +118,7 @@ export function LeadImporter() {
         },
         body: JSON.stringify({
           csvText,
+          fileName: fileName ?? undefined,
           mode: nextMode,
           defaultTags: tags
             .split(",")
@@ -148,6 +165,19 @@ export function LeadImporter() {
             </TabsList>
             <TabsContent value="paste" className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="csvFile">Upload .csv file</Label>
+                <Input
+                  id="csvFile"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleFile}
+                  className="cursor-pointer file:mr-3 file:cursor-pointer"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {fileName ? `Loaded ${fileName} - run Preview to inspect.` : "Pick a file, or paste below."}
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="defaultTags">Default tags</Label>
                 <Input
                   id="defaultTags"
@@ -162,7 +192,10 @@ export function LeadImporter() {
                   id="csvText"
                   placeholder={"first_name,last_name,email,company,tags\nAna,Pop,ana@example.com,Acme,\"warm,priority\""}
                   value={csvText}
-                  onChange={(event) => setCsvText(event.target.value)}
+                  onChange={(event) => {
+                    setCsvText(event.target.value);
+                    setFileName(null);
+                  }}
                   className="min-h-[260px] font-mono text-xs"
                 />
               </div>
