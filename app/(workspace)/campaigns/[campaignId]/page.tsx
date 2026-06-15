@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { AddSequenceStepDialog } from "@/components/internal/add-sequence-step-dialog";
 import { CampaignPreflight } from "@/components/internal/campaign-preflight";
+import { CampaignSettingsDialog } from "@/components/internal/campaign-settings-dialog";
 import { CampaignProgressRail } from "@/components/internal/campaign-progress-rail";
 import { LeadPicker } from "@/components/internal/lead-picker";
 import { SequenceStepCard } from "@/components/internal/sequence-step-card";
@@ -20,7 +21,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCampaignProgressSnapshot, getVariantPerformance } from "@/lib/outreach/analytics";
 import { campaignSequenceText, getCampaignById } from "@/lib/outreach/campaigns";
+import { clampSendWindow } from "@/lib/outreach/format";
 import { listLeads } from "@/lib/outreach/leads";
+import type { SendWindow } from "@/lib/outreach/types";
 import {
   buildLeadTemplateParams,
   findMissingPersonalization,
@@ -71,6 +74,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
   );
   const heldLeads = campaign.enrollments.filter((enrollment) => heldEnrollmentIds.has(enrollment.id));
   const requiredVarTokens = REQUIRED_PERSONALIZATION_VARIABLES.map((key) => `{{${key}}}`).join(", ");
+  const campaignWindow = clampSendWindow(campaign.sendWindow as unknown as Partial<SendWindow>);
 
   return (
     <div className="space-y-4">
@@ -85,6 +89,12 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <CampaignSettingsDialog
+            campaignId={campaign.id}
+            timezone={campaign.timezone}
+            dailyLimit={campaign.dailyLimit}
+            sendWindow={campaignWindow}
+          />
           <LeadPicker campaignId={campaign.id} leads={leads} />
           <AddSequenceStepDialog campaignId={campaign.id} previewLeads={previewLeads} />
         </div>

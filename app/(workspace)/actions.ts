@@ -14,6 +14,7 @@ import {
   pauseEnrollment,
   scheduleEnrollmentMessages,
   toggleSequenceStepVariant,
+  updateCampaignSettings,
 } from "@/lib/outreach/campaigns";
 import { requireAppUser } from "@/lib/outreach/auth";
 import {
@@ -30,7 +31,7 @@ import {
   setInboundClassification,
 } from "@/lib/outreach/replies";
 import type { InboundClassification } from "@prisma/client";
-import { createSendingDomain } from "@/lib/outreach/mailboxes";
+import { createSendingDomain, updateMailboxSettings } from "@/lib/outreach/mailboxes";
 import { verifySendingDomain } from "@/lib/outreach/dns";
 import { splitCommaValues } from "@/lib/outreach/format";
 
@@ -230,6 +231,39 @@ export async function createCampaignFromTemplateAction(formData: FormData) {
 
   revalidatePath("/campaigns");
   revalidatePath(`/campaigns/${campaign.id}`);
+}
+
+export async function updateCampaignSettingsAction(formData: FormData) {
+  const appUser = await requireAppUser();
+  if (!appUser) {
+    throw new Error("Authentication required.");
+  }
+
+  const campaignId = requireValue(formData.get("campaignId"), "Campaign");
+  await updateCampaignSettings({
+    campaignId,
+    timezone: String(formData.get("timezone") ?? "America/New_York"),
+    dailyLimit: Number(formData.get("dailyLimit") ?? "30"),
+    sendWindow: sendWindowFromFormData(formData),
+  });
+
+  revalidatePath(`/campaigns/${campaignId}`);
+}
+
+export async function updateMailboxSettingsAction(formData: FormData) {
+  const appUser = await requireAppUser();
+  if (!appUser) {
+    throw new Error("Authentication required.");
+  }
+
+  const mailboxId = requireValue(formData.get("mailboxId"), "Mailbox");
+  await updateMailboxSettings({
+    mailboxId,
+    timezone: String(formData.get("timezone") ?? "America/New_York"),
+    sendWindow: sendWindowFromFormData(formData),
+  });
+
+  revalidatePath("/mailboxes");
 }
 
 export async function createSequenceStepAction(formData: FormData) {

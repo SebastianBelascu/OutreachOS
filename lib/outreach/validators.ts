@@ -116,6 +116,22 @@ export const campaignInputSchema = z.object({
   sendWindow: sendWindowSchema,
 });
 
+// Post-creation edits. Timezone + send window drive when the scheduler is allowed
+// to send; daily limit caps campaign volume. Kept separate from the create schema
+// so editing settings never touches mailbox pool / ramp wiring.
+export const campaignSettingsSchema = z.object({
+  campaignId: z.string().trim().min(1),
+  timezone: z.string().trim().min(1).max(80),
+  dailyLimit: z.coerce.number().int().min(1).max(1000),
+  sendWindow: sendWindowSchema,
+});
+
+export const mailboxSettingsSchema = z.object({
+  mailboxId: z.string().trim().min(1),
+  timezone: z.string().trim().min(1).max(80),
+  sendWindow: sendWindowSchema,
+});
+
 export const sequenceStepInputSchema = z.object({
   campaignId: z.string().trim().min(1),
   subject: z.string().trim().min(2).max(200),

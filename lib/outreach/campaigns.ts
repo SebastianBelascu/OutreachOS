@@ -16,6 +16,7 @@ import { buildLeadTemplateParams, findMissingPersonalization } from "@/lib/outre
 import {
   campaignEnrollmentInputSchema,
   campaignInputSchema,
+  campaignSettingsSchema,
   createCampaignFromTemplateSchema,
   sequenceStepInputSchema,
   sequenceStepVariantInputSchema,
@@ -168,6 +169,23 @@ export async function createCampaign(input: unknown, createdById: string) {
           mailboxId,
         })),
       },
+    },
+  });
+}
+
+/**
+ * Updates a campaign's timezone, send window and daily limit after creation.
+ * These only gate WHEN the scheduler may send (isWithinSendWindow) — already-queued
+ * messages keep their scheduledAt and simply flush during the next allowed window.
+ */
+export async function updateCampaignSettings(input: unknown) {
+  const parsed = campaignSettingsSchema.parse(input);
+  return prisma.campaign.update({
+    where: { id: parsed.campaignId },
+    data: {
+      timezone: parsed.timezone,
+      dailyLimit: parsed.dailyLimit,
+      sendWindow: parsed.sendWindow as unknown as Prisma.InputJsonValue,
     },
   });
 }

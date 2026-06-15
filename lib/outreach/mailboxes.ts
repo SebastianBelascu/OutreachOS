@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { getDatePartsInTimeZone, normalizeEmail } from "@/lib/outreach/format";
-import { sendingDomainInputSchema } from "@/lib/outreach/validators";
+import { mailboxSettingsSchema, sendingDomainInputSchema } from "@/lib/outreach/validators";
 
 function normalizeDomain(value: string) {
   return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
@@ -59,6 +59,22 @@ export async function createSendingDomain(input: unknown) {
         senderVerified: false,
         unsubscribeReady: true,
       } as Prisma.InputJsonValue,
+    },
+  });
+}
+
+/**
+ * Updates a mailbox's timezone and send window after creation. The scheduler checks
+ * BOTH the campaign window and the mailbox window before sending, so a mailbox stuck
+ * on the wrong timezone silently blocks every send — this makes it editable in the UI.
+ */
+export async function updateMailboxSettings(input: unknown) {
+  const parsed = mailboxSettingsSchema.parse(input);
+  return prisma.mailbox.update({
+    where: { id: parsed.mailboxId },
+    data: {
+      timezone: parsed.timezone,
+      sendWindow: parsed.sendWindow as unknown as Prisma.InputJsonValue,
     },
   });
 }

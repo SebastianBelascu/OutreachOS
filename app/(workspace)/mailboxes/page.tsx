@@ -3,6 +3,7 @@ import { Boxes, Gauge, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import { testMailboxConnectionAction, testSmtpConnectionAction } from "@/app/(workspace)/actions";
 import { CreateMailboxDialog } from "@/components/internal/create-mailbox-dialog";
+import { MailboxSettingsDialog } from "@/components/internal/mailbox-settings-dialog";
 import { DataToolbar } from "@/components/internal/data-toolbar";
 import { EmptyState } from "@/components/internal/empty-state";
 import { StatusBadge } from "@/components/internal/status-badge";
@@ -19,7 +20,9 @@ import {
 } from "@/components/ui/table";
 import { listMailboxes } from "@/lib/outreach/campaigns";
 import { getInboxCapacity } from "@/lib/outreach/analytics";
+import { clampSendWindow } from "@/lib/outreach/format";
 import { getMailboxRampCap, listSendingDomains } from "@/lib/outreach/mailboxes";
+import type { SendWindow } from "@/lib/outreach/types";
 
 export default async function MailboxesPage() {
   await connection();
@@ -122,6 +125,14 @@ export default async function MailboxesPage() {
                     <span className="mt-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                       {mailbox.sendTransport === "SMTP" ? "SMTP direct" : "Brevo API"}
                     </span>
+                    <div>
+                      <MailboxSettingsDialog
+                        mailboxId={mailbox.id}
+                        mailboxName={mailbox.name}
+                        timezone={mailbox.timezone}
+                        sendWindow={clampSendWindow(mailbox.sendWindow as unknown as Partial<SendWindow>)}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell>
                     <p className="text-sm">{mailbox.domain?.domain ?? "Legacy sender"}</p>

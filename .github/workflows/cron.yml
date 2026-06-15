@@ -10,7 +10,7 @@ name: OutreachOS Crons
 
 on:
   schedule:
-    - cron: "*/5 7-19 * * 1-5" # dispatch + send — în timpul programului, L-V
+    - cron: "*/5 * * * 1-5" # dispatch + send — toată ziua L-V; fereastra de trimitere (în timezone-ul campaniei/mailbox-ului) decide ora reală, deci acoperim și fusele US
     - cron: "*/10 * * * *" # inbox — sync IMAP la fiecare 10 min
     - cron: "0 * * * *" # health — din oră în oră
     - cron: "0 6 * * *" # dns — o dată pe zi, la 06:00 UTC
@@ -71,7 +71,7 @@ jobs:
 
           # Rulare programată — aleg endpoint-urile după cron-ul care a declanșat
           case "$SCHEDULE" in
-            "*/5 7-19 * * 1-5") hit dispatch; hit send ;;
+            "*/5 * * * 1-5") hit dispatch; hit send ;;
             "*/10 * * * *")     hit inbox ;;
             "0 * * * *")        hit health ;;
             "0 6 * * *")        hit dns ;;
