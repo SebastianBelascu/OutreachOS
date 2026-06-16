@@ -54,7 +54,7 @@ jobs:
 
           hit() {
             echo "→ POST /api/cron/outreach/$1"
-            curl -fsS --max-time 90 -X POST \
+            curl -fsS --max-time 290 -X POST \
               -H "Authorization: Bearer $SECRET" \
               "$BASE/api/cron/outreach/$1"
             echo
