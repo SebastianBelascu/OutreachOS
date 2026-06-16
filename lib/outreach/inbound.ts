@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { classifyInboundWithAi, isAiConfigured } from "@/lib/outreach/ai";
 import { stopLeadInCampaign } from "@/lib/outreach/campaigns";
 import { classifyInbound } from "@/lib/outreach/classify";
-import { normalizeEmail, textFromHtml } from "@/lib/outreach/format";
+import { buildEventKey, normalizeEmail, textFromHtml } from "@/lib/outreach/format";
 
 export interface RawInboundMessage {
   mailboxId: string;
@@ -205,6 +205,27 @@ export async function ingestInboundMessage(raw: RawInboundMessage) {
         source: "imap:bounce",
       },
     });
+    // Record a HARD_BOUNCE event so mailbox/campaign health (which reads EmailEvent)
+    // actually reacts to SMTP bounces — Brevo webhooks never fire for SMTP-sent mail.
+    try {
+      await prisma.emailEvent.create({
+        data: {
+          eventKey: buildEventKey("HARD_BOUNCE", outbound.id, raw.messageId),
+          eventType: "HARD_BOUNCE",
+          providerMessageId: outbound.providerMessageId ?? null,
+          payload: { source: "imap:bounce", bounceFrom: raw.fromEmail } as unknown as Prisma.InputJsonValue,
+          occurredAt: raw.receivedAt,
+          outboundMessageId: outbound.id,
+          campaignId: outbound.campaignId,
+          leadId: outbound.leadId,
+        },
+      });
+    } catch (error) {
+      // Duplicate event for a re-ingested bounce — safe to ignore.
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {
+        throw error;
+      }
+    }
     await stopLeadInCampaign(outbound.leadId, outbound.campaignId, "Hard bounce");
   }
 

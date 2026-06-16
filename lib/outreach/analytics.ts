@@ -44,6 +44,61 @@ export async function getWorkspaceStats(): Promise<AppWorkspaceStats> {
   };
 }
 
+export interface MailboxDeliverability {
+  sent: number;
+  bounced: number;
+  replies: number;
+  bounceRate: number; // percentage, bounced / (sent + bounced)
+}
+
+/**
+ * Trailing-7-day deliverability per mailbox, keyed by mailbox id: messages accepted by
+ * the server (SENT+), hard bounces detected (SMTP bounces arrive via IMAP), and human
+ * replies. With SMTP direct there's no inbox-placement/open signal — sent ≠ delivered —
+ * so bounces and replies are the real-world health signals we surface.
+ */
+export async function getMailboxDeliverability(
+  now = new Date(),
+): Promise<Record<string, MailboxDeliverability>> {
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const [sentRows, bouncedRows, replyRows] = await Promise.all([
+    prisma.outboundMessage.groupBy({
+      by: ["mailboxId"],
+      where: { sentAt: { gte: since }, status: { in: ["SENT", "DELIVERED", "OPENED", "CLICKED"] } },
+      _count: true,
+    }),
+    prisma.outboundMessage.groupBy({
+      by: ["mailboxId"],
+      where: { status: "BOUNCED", failedAt: { gte: since } },
+      _count: true,
+    }),
+    prisma.inboundMessage.groupBy({
+      by: ["mailboxId"],
+      where: {
+        receivedAt: { gte: since },
+        classification: { in: ["INTERESTED", "NOT_INTERESTED", "NEUTRAL", "UNSUBSCRIBE_REQUEST"] },
+      },
+      _count: true,
+    }),
+  ]);
+
+  const map: Record<string, MailboxDeliverability> = {};
+  const ensure = (id: string) => {
+    if (!map[id]) {
+      map[id] = { sent: 0, bounced: 0, replies: 0, bounceRate: 0 };
+    }
+    return map[id];
+  };
+  for (const row of sentRows) ensure(row.mailboxId).sent = row._count;
+  for (const row of bouncedRows) ensure(row.mailboxId).bounced = row._count;
+  for (const row of replyRows) ensure(row.mailboxId).replies = row._count;
+  for (const stats of Object.values(map)) {
+    const attempts = stats.sent + stats.bounced;
+    stats.bounceRate = attempts > 0 ? (stats.bounced / attempts) * 100 : 0;
+  }
+  return map;
+}
+
 export async function getAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
   const [
     sent,

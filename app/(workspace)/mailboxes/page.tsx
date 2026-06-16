@@ -19,17 +19,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listMailboxes } from "@/lib/outreach/campaigns";
-import { getInboxCapacity } from "@/lib/outreach/analytics";
+import { getInboxCapacity, getMailboxDeliverability } from "@/lib/outreach/analytics";
 import { clampSendWindow } from "@/lib/outreach/format";
 import { getMailboxRampCap, listSendingDomains } from "@/lib/outreach/mailboxes";
 import type { SendWindow } from "@/lib/outreach/types";
 
 export default async function MailboxesPage() {
   await connection();
-  const [mailboxes, domains, inboxCapacity] = await Promise.all([
+  const [mailboxes, domains, inboxCapacity, deliverability] = await Promise.all([
     listMailboxes(),
     listSendingDomains(),
     getInboxCapacity(),
+    getMailboxDeliverability(),
   ]);
   const readyMailboxes = mailboxes.filter(
     (mailbox) =>
@@ -108,6 +109,7 @@ export default async function MailboxesPage() {
                 <TableHead>Mailbox</TableHead>
                 <TableHead>Domain</TableHead>
                 <TableHead>Health</TableHead>
+                <TableHead>Deliverability (7d)</TableHead>
                 <TableHead>Warmup</TableHead>
                 <TableHead>Effective cap</TableHead>
                 <TableHead>Rotation</TableHead>
@@ -140,6 +142,32 @@ export default async function MailboxesPage() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={mailbox.isActive ? mailbox.healthStatus : "PAUSED"} />
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {(deliverability[mailbox.id]?.sent ?? 0) +
+                      (deliverability[mailbox.id]?.bounced ?? 0) +
+                      (deliverability[mailbox.id]?.replies ?? 0) ===
+                    0 ? (
+                      <span className="text-muted-foreground">No data yet</span>
+                    ) : (
+                      <div className="space-y-0.5">
+                        <p>
+                          {deliverability[mailbox.id]?.sent ?? 0} sent · {deliverability[mailbox.id]?.replies ?? 0} repl
+                        </p>
+                        <p
+                          className={
+                            (deliverability[mailbox.id]?.bounced ?? 0) > 0
+                              ? "font-medium text-rose-600"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {deliverability[mailbox.id]?.bounced ?? 0} bounced
+                          {(deliverability[mailbox.id]?.bounceRate ?? 0) > 0
+                            ? ` (${(deliverability[mailbox.id]?.bounceRate ?? 0).toFixed(1)}%)`
+                            : ""}
+                        </p>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={mailbox.warmupState} />
