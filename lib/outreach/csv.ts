@@ -201,6 +201,8 @@ export function previewLeadImport(
   let duplicateRows = 0;
   let invalidRows = 0;
   let skippedRows = 0;
+  const skipReasons = { competitor: 0, notValidated: 0, noEmail: 0 };
+  const validationStatusesSeen = new Set<string>();
 
   dataRows.forEach((row, index) => {
     const rowNumber = index + 2;
@@ -211,10 +213,13 @@ export function previewLeadImport(
       // Skip competitors and any lead the qualifier did not mark as validated.
       if (cells.is_competitor?.trim().toLowerCase() === "true") {
         skippedRows += 1;
+        skipReasons.competitor += 1;
         return;
       }
       if (cells.validation_status && cells.validation_status.trim().toLowerCase() !== "validated") {
         skippedRows += 1;
+        skipReasons.notValidated += 1;
+        validationStatusesSeen.add(cells.validation_status.trim());
         return;
       }
 
@@ -222,6 +227,7 @@ export function previewLeadImport(
       const email = normalizeEmail((cells.emails ?? "").split("|")[0] ?? "");
       if (!email) {
         skippedRows += 1;
+        skipReasons.noEmail += 1;
         return;
       }
       if (seen.has(email)) {
@@ -273,6 +279,23 @@ export function previewLeadImport(
       dedupeKey: email,
     });
   });
+
+  // Tell the operator WHY rows were skipped instead of a silent count — and surface the
+  // actual validation_status values so a mismatch (e.g. "pending" vs "validated") is obvious.
+  if (leadHub && skippedRows > 0) {
+    errors.push(
+      `Skipped ${skippedRows}: ${skipReasons.notValidated} not validation_status="validated", ` +
+        `${skipReasons.noEmail} missing email, ${skipReasons.competitor} competitors.`,
+    );
+    if (skipReasons.notValidated > 0 && validationStatusesSeen.size > 0) {
+      errors.push(
+        `validation_status values found (need "validated"): ${[...validationStatusesSeen].slice(0, 8).join(", ")}`,
+      );
+    }
+    if (skipReasons.noEmail > 0) {
+      errors.push(`Missing email: check the "emails" column exists and is populated.`);
+    }
+  }
 
   return {
     totalRows: dataRows.length,
