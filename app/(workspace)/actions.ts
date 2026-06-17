@@ -33,6 +33,7 @@ import {
 } from "@/lib/outreach/replies";
 import type { InboundClassification } from "@prisma/client";
 import { createSendingDomain, updateMailboxSettings } from "@/lib/outreach/mailboxes";
+import { sendMessageNow } from "@/lib/outreach/messages";
 import { verifySendingDomain } from "@/lib/outreach/dns";
 import { splitCommaValues } from "@/lib/outreach/format";
 
@@ -287,6 +288,18 @@ export async function createSequenceStepAction(formData: FormData) {
     delayDaysMax: Number(formData.get("delayDaysMax") ?? "0"),
     stopOnReply: parseBoolean(formData.get("stopOnReply")),
   });
+
+  revalidatePath(`/campaigns/${campaignId}`);
+}
+
+export async function sendMessageNowAction(formData: FormData) {
+  const appUser = await requireAppUser();
+  if (!appUser) {
+    throw new Error("Authentication required.");
+  }
+
+  const campaignId = requireValue(formData.get("campaignId"), "Campaign");
+  await sendMessageNow(requireValue(formData.get("messageId"), "Message"));
 
   revalidatePath(`/campaigns/${campaignId}`);
 }

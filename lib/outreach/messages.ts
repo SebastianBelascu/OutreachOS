@@ -416,6 +416,94 @@ export async function sendClaimedMessages(limit = 8): Promise<SendSummary> {
   };
 }
 
+/**
+ * Sends a single message immediately, bypassing the dispatch loop (send window, caps,
+ * cron cadence). An explicit operator override — used by the "Send now" button for test
+ * sends and manual pushes. Marks the message SENT, or FAILED with the reason on error.
+ */
+export async function sendMessageNow(messageId: string): Promise<{ messageId: string }> {
+  const message = await prisma.outboundMessage.findUnique({
+    where: { id: messageId },
+    include: { mailbox: true, lead: true },
+  });
+  if (!message) {
+    throw new Error("Message not found.");
+  }
+  if (["SENT", "DELIVERED", "OPENED", "CLICKED"].includes(message.status)) {
+    throw new Error("Message was already sent.");
+  }
+
+  const unsubscribeUrl = absoluteUrl(`/unsubscribe/${message.unsubscribeToken}`);
+  const leadName = `${message.lead.firstName ?? ""} ${message.lead.lastName ?? ""}`.trim() || undefined;
+  const headers = {
+    "X-OutreachOS-Message-ID": message.id,
+    "X-OutreachOS-Campaign-ID": message.campaignId,
+    "X-OutreachOS-Lead-ID": message.leadId,
+    "X-OutreachOS-Step-ID": message.sequenceStepId,
+    "List-Unsubscribe": `<${unsubscribeUrl}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+
+  try {
+    const useSmtp = message.mailbox.sendTransport === "SMTP";
+    const response = useSmtp
+      ? await sendViaSmtp({
+          mailbox: message.mailbox,
+          to: { email: message.lead.email, name: leadName },
+          subject: message.subject,
+          html: message.htmlBody,
+          headers,
+        })
+      : await sendBrevoTransactionalEmail({
+          sender: { email: message.mailbox.fromEmail, name: message.mailbox.fromName },
+          replyTo: message.mailbox.replyTo ? { email: message.mailbox.replyTo } : undefined,
+          to: [{ email: message.lead.email, name: leadName }],
+          subject: message.subject,
+          htmlContent: message.htmlBody,
+          tags: message.tags,
+          headers,
+        });
+
+    await prisma.outboundMessage.update({
+      where: { id: message.id },
+      data: {
+        status: "SENT",
+        providerMessageId: response.messageId,
+        sentAt: new Date(),
+        threadRef: response.messageId,
+        nextRetryAt: null,
+        failureReason: null,
+      },
+    });
+
+    await prisma.mailboxDailyUsage.upsert({
+      where: {
+        mailboxId_usageDate: {
+          mailboxId: message.mailboxId,
+          usageDate: usageDateForMailbox(new Date(), message.mailbox.timezone),
+        },
+      },
+      update: { sentCount: { increment: 1 } },
+      create: {
+        mailboxId: message.mailboxId,
+        usageDate: usageDateForMailbox(new Date(), message.mailbox.timezone),
+        sentCount: 1,
+      },
+    });
+
+    await prisma.lead.update({ where: { id: message.leadId }, data: { status: "CONTACTED" } });
+
+    return { messageId: response.messageId };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Manual send failed.";
+    await prisma.outboundMessage.update({
+      where: { id: message.id },
+      data: { status: "FAILED", failedAt: new Date(), failureReason: reason },
+    });
+    throw error;
+  }
+}
+
 function mapEventToMessageStatus(eventType: MessageEventType) {
   const statusMap: Record<MessageEventType, MessageStatus> = {
     SENT: "SENT",

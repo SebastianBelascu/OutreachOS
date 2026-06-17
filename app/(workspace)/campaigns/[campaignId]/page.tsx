@@ -9,6 +9,8 @@ import { LeadPicker } from "@/components/internal/lead-picker";
 import { SequenceStepCard } from "@/components/internal/sequence-step-card";
 import { StatusBadge } from "@/components/internal/status-badge";
 import { VariantPerformanceTable } from "@/components/internal/variant-performance-table";
+import { sendMessageNowAction } from "@/app/(workspace)/actions";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -248,7 +250,18 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                   <TableCell className="font-medium">{message.subject}</TableCell>
                   <TableCell>{message.lead.email}</TableCell>
                   <TableCell>
-                    <StatusBadge status={message.status} />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={message.status} />
+                      {["SCHEDULED", "CLAIMED", "FAILED"].includes(message.status) ? (
+                        <form action={sendMessageNowAction}>
+                          <input type="hidden" name="campaignId" value={campaign.id} />
+                          <input type="hidden" name="messageId" value={message.id} />
+                          <Button type="submit" variant="outline" size="sm" className="h-6 px-2 text-xs">
+                            Send now
+                          </Button>
+                        </form>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{message.mailbox.fromEmail}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{message.providerMessageId ?? "pending"}</TableCell>
