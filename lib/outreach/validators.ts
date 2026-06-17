@@ -141,6 +141,15 @@ export const sequenceStepInputSchema = z.object({
   stopOnReply: z.coerce.boolean().default(true),
 });
 
+export const sequenceStepUpdateSchema = z.object({
+  stepId: z.string().trim().min(1),
+  subject: z.string().trim().min(2).max(200),
+  body: z.string().trim().min(10),
+  delayDaysMin: z.coerce.number().int().min(0).max(30),
+  delayDaysMax: z.coerce.number().int().min(0).max(45),
+  stopOnReply: z.coerce.boolean().default(true),
+});
+
 export const sequenceStepVariantInputSchema = z.object({
   sequenceStepId: z.string().trim().min(1),
   label: z.string().trim().min(1).max(8),

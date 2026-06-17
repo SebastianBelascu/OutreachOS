@@ -15,6 +15,7 @@ import {
   scheduleEnrollmentMessages,
   toggleSequenceStepVariant,
   updateCampaignSettings,
+  updateSequenceStep,
 } from "@/lib/outreach/campaigns";
 import { requireAppUser } from "@/lib/outreach/auth";
 import {
@@ -271,6 +272,21 @@ export async function createSequenceStepAction(formData: FormData) {
 
   await createSequenceStep({
     campaignId,
+    subject: requireValue(formData.get("subject"), "Subject"),
+    body: requireValue(formData.get("body"), "Body"),
+    delayDaysMin: Number(formData.get("delayDaysMin") ?? "0"),
+    delayDaysMax: Number(formData.get("delayDaysMax") ?? "0"),
+    stopOnReply: parseBoolean(formData.get("stopOnReply")),
+  });
+
+  revalidatePath(`/campaigns/${campaignId}`);
+}
+
+export async function updateSequenceStepAction(formData: FormData) {
+  const campaignId = requireValue(formData.get("campaignId"), "Campaign");
+
+  await updateSequenceStep({
+    stepId: requireValue(formData.get("stepId"), "Step"),
     subject: requireValue(formData.get("subject"), "Subject"),
     body: requireValue(formData.get("body"), "Body"),
     delayDaysMin: Number(formData.get("delayDaysMin") ?? "0"),

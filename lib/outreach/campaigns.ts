@@ -19,6 +19,7 @@ import {
   campaignSettingsSchema,
   createCampaignFromTemplateSchema,
   sequenceStepInputSchema,
+  sequenceStepUpdateSchema,
   sequenceStepVariantInputSchema,
 } from "@/lib/outreach/validators";
 import { getCampaignTemplate } from "@/lib/outreach/templates";
@@ -318,6 +319,24 @@ export async function createSequenceStep(input: unknown) {
     data: {
       campaignId: parsed.campaignId,
       stepOrder: stepCount + 1,
+      subject: parsed.subject,
+      body: parsed.body,
+      delayDaysMin: parsed.delayDaysMin,
+      delayDaysMax: Math.max(parsed.delayDaysMax, parsed.delayDaysMin),
+      stopOnReply: parsed.stopOnReply,
+    },
+  });
+}
+
+/**
+ * Edits an existing step's content/timing. Only affects messages scheduled AFTER the
+ * change — already-queued messages keep the htmlBody rendered at scheduling time.
+ */
+export async function updateSequenceStep(input: unknown) {
+  const parsed = sequenceStepUpdateSchema.parse(input);
+  return prisma.sequenceStep.update({
+    where: { id: parsed.stepId },
+    data: {
       subject: parsed.subject,
       body: parsed.body,
       delayDaysMin: parsed.delayDaysMin,

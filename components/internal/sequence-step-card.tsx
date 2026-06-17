@@ -3,6 +3,7 @@ import { Clock3, Mail } from "lucide-react";
 
 import { deleteSequenceStepVariantAction, toggleSequenceStepVariantAction } from "@/app/(workspace)/actions";
 import { AddVariantDialog } from "@/components/internal/add-variant-dialog";
+import { EditSequenceStepDialog } from "@/components/internal/edit-sequence-step-dialog";
 import { Button } from "@/components/ui/button";
 
 interface SequenceStepCardProps {
@@ -37,6 +38,7 @@ export function SequenceStepCard({ campaignId, step }: SequenceStepCardProps) {
             </div>
             <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{step.body}</p>
           </div>
+          <EditSequenceStepDialog campaignId={campaignId} step={step} />
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className="inline-flex h-6 items-center gap-1 rounded-md border bg-muted/30 px-2">
