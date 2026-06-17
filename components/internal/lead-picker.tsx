@@ -2,22 +2,14 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import type { Lead } from "@prisma/client";
-import { Search, UserPlus } from "lucide-react";
+import { Check, Search, UserPlus } from "lucide-react";
 
 import { enrollLeadsAction } from "@/app/(workspace)/actions";
 import { StatusBadge } from "@/components/internal/status-badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandList,
-  CommandItem,
-} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Sheet,
   SheetContent,
@@ -96,7 +88,7 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
           {[...selected].map((id) => (
             <input key={id} type="hidden" name="leadIds" value={id} />
           ))}
-          <div className="space-y-3 px-4">
+          <div className="flex min-h-0 flex-1 flex-col space-y-3 px-4">
             <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-3">
               <div className="space-y-1">
                 <Label htmlFor="leadAmount" className="text-xs">
@@ -122,39 +114,54 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
               </Button>
             </div>
 
-            <Command shouldFilter={false} className="rounded-md border">
+            <div className="flex min-h-0 flex-1 flex-col rounded-md border">
               <div className="flex h-10 items-center gap-2 border-b px-3">
-                <Search className="size-4 text-muted-foreground" />
-                <CommandInput
+                <Search className="size-4 shrink-0 text-muted-foreground" />
+                <input
                   value={query}
-                  onValueChange={setQuery}
+                  onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search leads..."
-                  className="h-9"
+                  className="h-9 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                 />
               </div>
-              <CommandList className="max-h-[460px]">
-                <CommandEmpty>No leads found.</CommandEmpty>
-                <CommandGroup>
-                  {filteredLeads.map((lead) => (
-                    <CommandItem
-                      key={lead.id}
-                      value={lead.id}
-                      onSelect={() => toggle(lead.id)}
-                      className="gap-3"
-                    >
-                      <Checkbox checked={selected.has(lead.id)} className="pointer-events-none" tabIndex={-1} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {lead.company ?? (`${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.email)}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
-                      </div>
-                      <StatusBadge status={lead.status} />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
+              <div className="max-h-[460px] min-h-0 flex-1 overflow-y-auto p-1">
+                {filteredLeads.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No leads found.</p>
+                ) : (
+                  filteredLeads.map((lead) => {
+                    const isSelected = selected.has(lead.id);
+                    return (
+                      <button
+                        key={lead.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => toggle(lead.id)}
+                        className="flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent/60"
+                      >
+                        {/* Presentational only — selection is driven by the row button, no Radix state. */}
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "flex size-4 shrink-0 items-center justify-center rounded-sm border border-primary shadow-sm",
+                            isSelected && "bg-primary text-primary-foreground",
+                          )}
+                        >
+                          {isSelected ? <Check className="size-3.5" /> : null}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {lead.company ?? (`${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.email)}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
+                        </div>
+                        <StatusBadge status={lead.status} />
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
           <SheetFooter className="mt-auto border-t">
             <div className="flex w-full items-center justify-between gap-3">
