@@ -59,6 +59,8 @@ export function getOptionalEnv() {
     guardrailBounceRate: readOptionalNumber("GUARDRAIL_BOUNCE_RATE", 0.05),
     guardrailComplaintRate: readOptionalNumber("GUARDRAIL_COMPLAINT_RATE", 0.001),
     guardrailWarnBounceRate: readOptionalNumber("GUARDRAIL_WARN_BOUNCE_RATE", 0.03),
-    guardrailMinVolume: readOptionalNumber("GUARDRAIL_MIN_VOLUME", 30),
+    // Need a meaningful sample before judging deliverability — a couple of bounces in
+    // the first ~30 sends is noise, not a trend. Auto-pausing on that just churns inboxes.
+    guardrailMinVolume: readOptionalNumber("GUARDRAIL_MIN_VOLUME", 100),
   };
 }
