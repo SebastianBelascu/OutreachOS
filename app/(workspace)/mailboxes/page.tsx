@@ -152,7 +152,8 @@ export default async function MailboxesPage() {
                     ) : (
                       <div className="space-y-0.5">
                         <p>
-                          {deliverability[mailbox.id]?.sent ?? 0} sent · {deliverability[mailbox.id]?.replies ?? 0} repl
+                          {deliverability[mailbox.id]?.sent ?? 0} sent · {deliverability[mailbox.id]?.opened ?? 0} open ·{" "}
+                          {deliverability[mailbox.id]?.replies ?? 0} repl
                         </p>
                         <p
                           className={

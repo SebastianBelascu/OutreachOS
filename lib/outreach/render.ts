@@ -69,6 +69,10 @@ export function renderSequenceMessage(
     renderSpintax(renderTemplate(step.body, params), `${unsubscribeToken}:body`),
   );
   const unsubscribeUrl = absoluteUrl(`/unsubscribe/${unsubscribeToken}`);
+  // Open-tracking pixel: a 1x1 image on a per-message token. Loading it marks the
+  // message OPENED. Only in the real htmlBody, never in the preview. (Note: Apple Mail
+  // Privacy / Gmail proxy prefetch images, so opens are an inflated, noisy signal.)
+  const openPixelUrl = absoluteUrl(`/api/track/open/${unsubscribeToken}`);
 
   const htmlBody = `
     <div style="font-family:Arial,sans-serif;line-height:1.7;color:#171717">
@@ -78,6 +82,7 @@ export function renderSequenceMessage(
         If this is not relevant, you can
         <a href="${unsubscribeUrl}">unsubscribe here</a>.
       </p>
+      <img src="${openPixelUrl}" width="1" height="1" alt="" style="display:none" />
     </div>
   `.trim();
 
