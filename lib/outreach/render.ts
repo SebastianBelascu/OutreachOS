@@ -1,6 +1,5 @@
 import type { Lead, SequenceStep } from "@prisma/client";
 
-import { absoluteUrl } from "@/lib/utils";
 import { createSeededRng } from "@/lib/outreach/format";
 import { buildLeadTemplateParams } from "@/lib/outreach/variables";
 
@@ -68,23 +67,14 @@ export function renderSequenceMessage(
   const body = collapseBlankLines(
     renderSpintax(renderTemplate(step.body, params), `${unsubscribeToken}:body`),
   );
-  const unsubscribeUrl = absoluteUrl(`/unsubscribe/${unsubscribeToken}`);
-  // Open-tracking pixel: a 1x1 image on a per-message token. Loading it marks the
-  // message OPENED. Only in the real htmlBody, never in the preview. (Note: Apple Mail
-  // Privacy / Gmail proxy prefetch images, so opens are an inflated, noisy signal.)
-  const openPixelUrl = absoluteUrl(`/api/track/open/${unsubscribeToken}`);
-
-  const htmlBody = `
-    <div style="font-family:Arial,sans-serif;line-height:1.7;color:#171717">
-      <div>${body.replace(/\n/g, "<br />")}</div>
-      <hr style="margin:24px 0;border:none;border-top:1px solid #e5e5e5" />
-      <p style="font-size:12px;color:#737373">
-        If this is not relevant, you can
-        <a href="${unsubscribeUrl}">unsubscribe here</a>.
-      </p>
-      <img src="${openPixelUrl}" width="1" height="1" alt="" style="display:none" />
-    </div>
-  `.trim();
+  // Plain, personal-looking HTML — no tracking pixel, no divider, no styled unsubscribe
+  // footer. Heavy HTML/images and a visible unsubscribe push cold 1:1 mail into Gmail's
+  // Promotions tab; this keeps it closer to Primary. The opt-out still ships as an
+  // invisible List-Unsubscribe header (set at send time) — compliant and inbox-friendly.
+  const htmlBody = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222">${body.replace(
+    /\n/g,
+    "<br />",
+  )}</div>`;
 
   const previewHtml = `
     <div class="space-y-4">
