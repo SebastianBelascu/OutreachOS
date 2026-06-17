@@ -262,6 +262,15 @@ export async function updateMailboxSettingsAction(formData: FormData) {
     mailboxId,
     timezone: String(formData.get("timezone") ?? "America/New_York"),
     sendWindow: sendWindowFromFormData(formData),
+    isActive: parseBoolean(formData.get("isActive")),
+    healthStatus: String(formData.get("healthStatus") ?? "HEALTHY"),
+    warmupState: String(formData.get("warmupState") ?? "ACTIVE"),
+    dailyCap: Number(formData.get("dailyCap") ?? "30"),
+    maxDailyCap: Number(formData.get("maxDailyCap") ?? "50"),
+    hourlyCap: Number(formData.get("hourlyCap") ?? "8"),
+    rampStart: Number(formData.get("rampStart") ?? "5"),
+    rampIncrement: Number(formData.get("rampIncrement") ?? "5"),
+    rotationWeight: Number(formData.get("rotationWeight") ?? "1"),
   });
 
   revalidatePath("/mailboxes");

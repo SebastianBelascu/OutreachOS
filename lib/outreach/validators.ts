@@ -130,6 +130,15 @@ export const mailboxSettingsSchema = z.object({
   mailboxId: z.string().trim().min(1),
   timezone: z.string().trim().min(1).max(80),
   sendWindow: sendWindowSchema,
+  isActive: z.coerce.boolean().default(true),
+  healthStatus: mailboxHealthStatusSchema,
+  warmupState: mailboxWarmupStateSchema,
+  dailyCap: z.coerce.number().int().min(1).max(1000),
+  maxDailyCap: z.coerce.number().int().min(1).max(1000),
+  hourlyCap: z.coerce.number().int().min(1).max(200),
+  rampStart: z.coerce.number().int().min(1).max(500),
+  rampIncrement: z.coerce.number().int().min(0).max(250),
+  rotationWeight: z.coerce.number().int().min(1).max(100),
 });
 
 export const sequenceStepInputSchema = z.object({

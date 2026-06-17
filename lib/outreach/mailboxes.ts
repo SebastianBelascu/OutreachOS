@@ -75,6 +75,15 @@ export async function updateMailboxSettings(input: unknown) {
     data: {
       timezone: parsed.timezone,
       sendWindow: parsed.sendWindow as unknown as Prisma.InputJsonValue,
+      isActive: parsed.isActive,
+      healthStatus: parsed.healthStatus,
+      warmupState: parsed.warmupState,
+      dailyCap: parsed.dailyCap,
+      maxDailyCap: Math.max(parsed.maxDailyCap, parsed.dailyCap),
+      hourlyCap: parsed.hourlyCap,
+      rampStart: parsed.rampStart,
+      rampIncrement: parsed.rampIncrement,
+      rotationWeight: parsed.rotationWeight,
     },
   });
 }

@@ -133,6 +133,15 @@ export default async function MailboxesPage() {
                         mailboxName={mailbox.name}
                         timezone={mailbox.timezone}
                         sendWindow={clampSendWindow(mailbox.sendWindow as unknown as Partial<SendWindow>)}
+                        isActive={mailbox.isActive}
+                        healthStatus={mailbox.healthStatus}
+                        warmupState={mailbox.warmupState}
+                        dailyCap={mailbox.dailyCap}
+                        maxDailyCap={mailbox.maxDailyCap}
+                        hourlyCap={mailbox.hourlyCap}
+                        rampStart={mailbox.rampStart}
+                        rampIncrement={mailbox.rampIncrement}
+                        rotationWeight={mailbox.rotationWeight}
                       />
                     </div>
                   </TableCell>
