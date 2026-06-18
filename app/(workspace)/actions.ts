@@ -21,6 +21,7 @@ import { requireAppUser } from "@/lib/outreach/auth";
 import {
   createLead,
   createLeadNote,
+  deleteLead,
   generateLeadFirstLine,
   generateMissingFirstLines,
   setLeadStatus,
@@ -383,6 +384,22 @@ export async function generateLeadFirstLineAction(formData: FormData) {
 
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
+}
+
+export async function deleteLeadAction(formData: FormData): Promise<ActionResult> {
+  const appUser = await requireAppUser();
+  if (!appUser) {
+    return { ok: false, message: "Authentication required." };
+  }
+
+  try {
+    await deleteLead(requireValue(formData.get("leadId"), "Lead"));
+    revalidatePath("/leads");
+    revalidatePath("/dashboard");
+    return { ok: true, message: "Lead șters." };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Nu am putut șterge lead-ul." };
+  }
 }
 
 export async function generateMissingFirstLinesAction(formData: FormData) {

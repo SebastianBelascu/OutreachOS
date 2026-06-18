@@ -109,6 +109,15 @@ export async function setLeadStatus(leadId: string, status: string) {
   });
 }
 
+/**
+ * Permanently removes a lead. Tags, notes, enrollments, outbound messages and
+ * suppressions cascade away via their FK rules; email/inbound events keep their
+ * history with the leadId nulled out (onDelete: SetNull).
+ */
+export async function deleteLead(leadId: string) {
+  return prisma.lead.delete({ where: { id: leadId } });
+}
+
 function asCustomFields(value: Prisma.JsonValue | null): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }

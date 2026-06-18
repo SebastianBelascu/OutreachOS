@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { createLeadNoteAction, generateLeadFirstLineAction } from "@/app/(workspace)/actions";
+import { DeleteLeadButton } from "@/components/internal/delete-lead-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,8 +31,15 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   return (
     <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
       <Card className="rounded-lg">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
           <CardTitle>{lead.company ?? lead.email}</CardTitle>
+          <DeleteLeadButton
+            leadId={lead.id}
+            leadLabel={lead.company ?? (`${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.email)}
+            enrollmentCount={lead.enrollments.length}
+            redirectTo="/leads"
+            variant="button"
+          />
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div className="grid gap-3 md:grid-cols-2">

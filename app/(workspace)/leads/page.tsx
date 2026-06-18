@@ -4,6 +4,7 @@ import { Inbox } from "lucide-react";
 
 import { AddLeadDialog } from "@/components/internal/add-lead-dialog";
 import { DataToolbar } from "@/components/internal/data-toolbar";
+import { DeleteLeadButton } from "@/components/internal/delete-lead-button";
 import { EmptyState } from "@/components/internal/empty-state";
 import { LeadImporter } from "@/components/internal/lead-importer";
 import { StatusBadge } from "@/components/internal/status-badge";
@@ -137,6 +138,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
                 <TableHead>Campaigns</TableHead>
                 <TableHead>Suppression</TableHead>
                 <TableHead className="text-right">Updated</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -176,6 +178,15 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground">
                     {formatDateTime(lead.updatedAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DeleteLeadButton
+                      leadId={lead.id}
+                      leadLabel={
+                        lead.company ?? (`${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.email)
+                      }
+                      enrollmentCount={lead.enrollments.length}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
