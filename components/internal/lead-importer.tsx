@@ -201,6 +201,18 @@ export function LeadImporter() {
               </div>
             </TabsContent>
             <TabsContent value="preview" className="space-y-4">
+              {mode === "import" && result ? (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                  <p className="font-medium">
+                    Import gata: {result.importedRows} adăugate + {result.updatedRows} actualizate.
+                  </p>
+                  <p className="mt-1 text-emerald-800">
+                    Din {result.totalRows} rânduri: {result.validRows} valide ({result.importedRows} noi,{" "}
+                    {result.updatedRows} deja existau), {result.duplicateRows} duplicate,{" "}
+                    {result.skippedRows ?? 0} sărite, {result.invalidRows} invalide.
+                  </p>
+                </div>
+              ) : null}
               {result?.detectedFormat === "lead-hub" ? (
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
                   <span className="font-medium">lead-hub export detected.</span> Columns are mapped automatically
@@ -222,7 +234,14 @@ export function LeadImporter() {
                   </div>
                 ))}
               </div>
-              <div className="rounded-md border">
+              {result ? (
+                <p className="text-xs text-muted-foreground">
+                  {result.preview.length === result.validRows
+                    ? `Toate cele ${result.validRows} rânduri valide care se vor importa:`
+                    : `Se arată ${result.preview.length} din ${result.validRows} rânduri valide:`}
+                </p>
+              ) : null}
+              <div className="max-h-[420px] overflow-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -234,7 +253,7 @@ export function LeadImporter() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(result?.preview ?? []).slice(0, 8).map((row) => (
+                    {(result?.preview ?? []).map((row) => (
                       <TableRow key={`${row.rowNumber}-${row.email}`}>
                         <TableCell className="font-medium">{row.email}</TableCell>
                         <TableCell>{row.company ?? "-"}</TableCell>

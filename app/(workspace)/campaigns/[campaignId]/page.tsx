@@ -56,6 +56,18 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
     label: lead.company ?? lead.email,
     params: buildLeadTemplateParams(lead),
   }));
+  // The picker only needs identity + the two eligibility flags (already-enrolled / suppressed),
+  // so the heavy listLeads() rows are trimmed before crossing the server→client boundary.
+  const pickerLeads = leads.map((lead) => ({
+    id: lead.id,
+    email: lead.email,
+    company: lead.company,
+    firstName: lead.firstName,
+    lastName: lead.lastName,
+    status: lead.status,
+    enrolledCount: lead.enrollments.length,
+    suppressed: lead.suppressions.length > 0,
+  }));
   const progress = getCampaignProgressSnapshot(campaign);
   const sentMessages = campaign.messages.filter((message) =>
     ["SENT", "DELIVERED", "OPENED", "CLICKED"].includes(message.status),
@@ -97,7 +109,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
             dailyLimit={campaign.dailyLimit}
             sendWindow={campaignWindow}
           />
-          <LeadPicker campaignId={campaign.id} leads={leads} />
+          <LeadPicker campaignId={campaign.id} leads={pickerLeads} />
           <AddSequenceStepDialog campaignId={campaign.id} previewLeads={previewLeads} />
         </div>
       </div>
@@ -185,7 +197,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
               <p className="text-sm font-medium">Enrolled leads</p>
               <p className="text-xs text-muted-foreground">{campaign.enrollments.length} leads in this campaign</p>
             </div>
-            <LeadPicker campaignId={campaign.id} leads={leads} />
+            <LeadPicker campaignId={campaign.id} leads={pickerLeads} />
           </div>
           <Table>
             <TableHeader>

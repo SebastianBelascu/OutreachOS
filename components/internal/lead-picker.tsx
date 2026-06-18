@@ -1,8 +1,7 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import type { Lead } from "@prisma/client";
-import { Check, Search, UserPlus } from "lucide-react";
+import { Check, Eye, EyeOff, Search, UserPlus } from "lucide-react";
 
 import { enrollLeadsAction } from "@/app/(workspace)/actions";
 import { StatusBadge } from "@/components/internal/status-badge";
@@ -20,18 +19,39 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
+/** Slimmed-down lead shape the picker needs — plus the two flags that drive eligibility. */
+export interface PickerLead {
+  id: string;
+  email: string;
+  company: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  status: string;
+  /** How many campaigns this lead is (or was) enrolled in, across the whole workspace. */
+  enrolledCount: number;
+  /** True when an active suppression entry would stop the lead from being emailed. */
+  suppressed: boolean;
+}
+
 interface LeadPickerProps {
   campaignId: string;
-  leads: Lead[];
+  leads: PickerLead[];
+}
+
+/** A lead is fresh when it has never been in a campaign and isn't suppressed. */
+function isFresh(lead: PickerLead) {
+  return lead.enrolledCount === 0 && !lead.suppressed;
 }
 
 export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
   const [query, setQuery] = useState("");
   const [amount, setAmount] = useState("50");
+  // Hide leads that have already been in a campaign by default — a new campaign wants fresh leads.
+  const [hideUsed, setHideUsed] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const deferredQuery = useDeferredValue(query.toLowerCase());
 
-  const filteredLeads = useMemo(
+  const searchedLeads = useMemo(
     () =>
       leads.filter((lead) => {
         const haystack =
@@ -40,6 +60,17 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
       }),
     [leads, deferredQuery],
   );
+
+  // What the list actually renders: everything when "show all" is on, only fresh leads otherwise.
+  const visibleLeads = useMemo(
+    () => (hideUsed ? searchedLeads.filter(isFresh) : searchedLeads),
+    [searchedLeads, hideUsed],
+  );
+
+  // Leads matching the search that were hidden because they're already used/suppressed.
+  const hiddenUsedCount = hideUsed ? searchedLeads.length - visibleLeads.length : 0;
+  // Pool the bulk buttons draw from — never auto-selects a used or suppressed lead.
+  const freshVisible = useMemo(() => visibleLeads.filter(isFresh), [visibleLeads]);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -53,14 +84,14 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
     });
   }
 
-  // Take the first N of the *currently filtered* list — the "give me an amount" path.
+  // Take the first N *fresh* leads from the current view — the "give me an amount" path.
   function selectFirstN() {
     const n = Math.max(0, Math.floor(Number(amount) || 0));
-    setSelected(new Set(filteredLeads.slice(0, n).map((lead) => lead.id)));
+    setSelected(new Set(freshVisible.slice(0, n).map((lead) => lead.id)));
   }
 
-  function selectAllFiltered() {
-    setSelected((prev) => new Set([...prev, ...filteredLeads.map((lead) => lead.id)]));
+  function selectAllFresh() {
+    setSelected((prev) => new Set([...prev, ...freshVisible.map((lead) => lead.id)]));
   }
 
   function clear() {
@@ -79,7 +110,7 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
         <SheetHeader>
           <SheetTitle>Add leads to campaign</SheetTitle>
           <SheetDescription>
-            Pick how many to enroll — type an amount and grab the first N, select all, or tick individual leads.
+            Leadurile deja folosite în alte campanii sunt ascunse implicit. Tastează un număr și ia primele N, sau bifează manual.
           </SheetDescription>
         </SheetHeader>
         <form action={enrollLeadsAction} className="flex min-h-0 flex-1 flex-col">
@@ -106,12 +137,27 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
               <Button type="button" variant="outline" size="sm" onClick={selectFirstN}>
                 Select first {Math.max(0, Math.floor(Number(amount) || 0))}
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={selectAllFiltered}>
-                Select all ({filteredLeads.length})
+              <Button type="button" variant="outline" size="sm" onClick={selectAllFresh}>
+                Select all noi ({freshVisible.length})
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={clear}>
                 Clear
               </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Button
+                type="button"
+                variant={hideUsed ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setHideUsed((value) => !value)}
+              >
+                {hideUsed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                {hideUsed ? "Leaduri folosite: ascunse" : "Leaduri folosite: afișate"}
+              </Button>
+              {hiddenUsedCount > 0 ? (
+                <span className="text-xs text-muted-foreground">{hiddenUsedCount} ascunse (deja folosite)</span>
+              ) : null}
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col rounded-md border">
@@ -125,11 +171,16 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
                 />
               </div>
               <div className="max-h-[460px] min-h-0 flex-1 overflow-y-auto p-1">
-                {filteredLeads.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">No leads found.</p>
+                {visibleLeads.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    {hideUsed && hiddenUsedCount > 0
+                      ? "Toate leadurile potrivite sunt deja în campanii. Apasă „Leaduri folosite: afișate” ca să le vezi."
+                      : "No leads found."}
+                  </p>
                 ) : (
-                  filteredLeads.map((lead) => {
+                  visibleLeads.map((lead) => {
                     const isSelected = selected.has(lead.id);
+                    const used = lead.enrolledCount > 0;
                     return (
                       <button
                         key={lead.id}
@@ -155,7 +206,12 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
                           </p>
                           <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
                         </div>
-                        <StatusBadge status={lead.status} />
+                        {used ? (
+                          <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                            în {lead.enrolledCount} {lead.enrolledCount === 1 ? "campanie" : "campanii"}
+                          </span>
+                        ) : null}
+                        {lead.suppressed ? <StatusBadge status="SUPPRESSED" /> : <StatusBadge status={lead.status} />}
                       </button>
                     );
                   })
@@ -166,8 +222,8 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
           <SheetFooter className="mt-auto border-t">
             <div className="flex w-full items-center justify-between gap-3">
               <span className="text-sm text-muted-foreground">
-                {selected.size} selected{" "}
-                {filteredLeads.length !== leads.length ? `(of ${filteredLeads.length} shown)` : `of ${leads.length}`}
+                {selected.size} selectate · {visibleLeads.length} afișate
+                {hiddenUsedCount > 0 ? ` · ${hiddenUsedCount} ascunse` : ""}
               </span>
               <Button type="submit" disabled={selected.size === 0}>
                 Enroll {selected.size}
