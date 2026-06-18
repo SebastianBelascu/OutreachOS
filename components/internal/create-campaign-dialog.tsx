@@ -1,8 +1,12 @@
+"use client";
+
 import type { Mailbox } from "@prisma/client";
 import { Plus } from "lucide-react";
+import { useState } from "react";
 
 import { createCampaignAction } from "@/app/(workspace)/actions";
 import { SendWindowPicker } from "@/components/internal/send-window-picker";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -29,8 +33,10 @@ interface CreateCampaignDialogProps {
 }
 
 export function CreateCampaignDialog({ mailboxes }: CreateCampaignDialogProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" disabled={mailboxes.length === 0}>
           <Plus className="size-4" />
@@ -42,7 +48,12 @@ export function CreateCampaignDialog({ mailboxes }: CreateCampaignDialogProps) {
           <DialogTitle>Create campaign</DialogTitle>
           <DialogDescription>Set the sender, daily pace, and default sending window.</DialogDescription>
         </DialogHeader>
-        <form action={createCampaignAction} className="grid gap-4 md:grid-cols-2">
+        <ToastForm
+          action={createCampaignAction}
+          success="Campanie creată"
+          onSuccess={() => setOpen(false)}
+          className="grid gap-4 md:grid-cols-2"
+        >
           <div className="space-y-2">
             <Label htmlFor="campaignName">Name</Label>
             <Input id="campaignName" name="name" required />
@@ -112,9 +123,9 @@ export function CreateCampaignDialog({ mailboxes }: CreateCampaignDialogProps) {
           </div>
           <SendWindowPicker />
           <DialogFooter className="md:col-span-2">
-            <Button type="submit">Create campaign</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Create campaign</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );

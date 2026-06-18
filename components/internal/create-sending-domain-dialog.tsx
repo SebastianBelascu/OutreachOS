@@ -1,6 +1,10 @@
+"use client";
+
 import { Plus } from "lucide-react";
+import { useState } from "react";
 
 import { createSendingDomainAction } from "@/app/(workspace)/actions";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -24,8 +28,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 export function CreateSendingDomainDialog() {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="size-4" />
@@ -37,7 +43,12 @@ export function CreateSendingDomainDialog() {
           <DialogTitle>Add sending domain</DialogTitle>
           <DialogDescription>Track DNS auth and inbox readiness before campaigns send.</DialogDescription>
         </DialogHeader>
-        <form action={createSendingDomainAction} className="grid gap-4 md:grid-cols-2">
+        <ToastForm
+          action={createSendingDomainAction}
+          success="Domeniu adăugat"
+          onSuccess={() => setOpen(false)}
+          className="grid gap-4 md:grid-cols-2"
+        >
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="domain">Domain</Label>
             <Input id="domain" name="domain" placeholder="outreach-example.com" required />
@@ -87,9 +98,9 @@ export function CreateSendingDomainDialog() {
             <Textarea id="notes" name="notes" placeholder="DNS owner, warmup notes, provider caveats..." />
           </div>
           <DialogFooter className="md:col-span-2">
-            <Button type="submit">Save domain</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Save domain</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );

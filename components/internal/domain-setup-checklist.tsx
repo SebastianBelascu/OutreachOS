@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 
 import { verifySendingDomainAction } from "@/app/(workspace)/actions";
+import { ToastForm } from "@/components/internal/toast-form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
@@ -94,13 +95,13 @@ export function DomainSetupChecklist({
         <span className="text-[10px] text-muted-foreground/70">
           {lastVerifiedAt ? `Checked ${formatDateTime(lastVerifiedAt)}` : "Never verified"}
         </span>
-        <form action={verifySendingDomainAction}>
+        <ToastForm action={verifySendingDomainAction} success="Verificare pornită">
           <input type="hidden" name="domainId" value={domainId} />
           <Button type="submit" size="sm" variant="outline" className="h-7 gap-1 text-xs">
             <RefreshCw className="size-3" />
             Verify now
           </Button>
-        </form>
+        </ToastForm>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { CheckCircle2, CircleAlert } from "lucide-react";
 import type { Campaign, CampaignMailbox, Mailbox, SequenceStep, CampaignEnrollment, SendingDomain } from "@prisma/client";
 
 import { activateCampaignAction } from "@/app/(workspace)/actions";
+import { ToastForm } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 
 interface CampaignPreflightProps {
@@ -65,12 +66,12 @@ export function CampaignPreflight({ campaign }: CampaignPreflightProps) {
           );
         })}
       </div>
-      <form action={activateCampaignAction}>
+      <ToastForm action={activateCampaignAction} success="Campanie activată">
         <input type="hidden" name="campaignId" value={campaign.id} />
         <Button type="submit" disabled={!canLaunch}>
           Activate campaign
         </Button>
-      </form>
+      </ToastForm>
     </div>
   );
 }

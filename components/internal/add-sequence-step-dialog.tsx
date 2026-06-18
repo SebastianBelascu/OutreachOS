@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Plus, Variable } from "lucide-react";
 
 import { createSequenceStepAction } from "@/app/(workspace)/actions";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -44,6 +45,7 @@ function renderClientPreview(template: string, params: Record<string, string>) {
 }
 
 export function AddSequenceStepDialog({ campaignId, previewLeads = [] }: AddSequenceStepDialogProps) {
+  const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("Quick question for {{company}}");
   const [body, setBody] = useState("Hey {{first_name}},\n\nI noticed {{company}} and wanted to reach out.");
   const [previewLeadId, setPreviewLeadId] = useState(previewLeads[0]?.id ?? "sample");
@@ -81,7 +83,7 @@ export function AddSequenceStepDialog({ campaignId, previewLeads = [] }: AddSequ
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           <Plus className="size-4" />
@@ -93,7 +95,12 @@ export function AddSequenceStepDialog({ campaignId, previewLeads = [] }: AddSequ
           <DialogTitle>Add sequence step</DialogTitle>
           <DialogDescription>Write with variables, preview against a real lead, and catch missing fields before launch.</DialogDescription>
         </DialogHeader>
-        <form action={createSequenceStepAction} className="space-y-4">
+        <ToastForm
+          action={createSequenceStepAction}
+          success="Pas adăugat"
+          onSuccess={() => setOpen(false)}
+          className="space-y-4"
+        >
           <input type="hidden" name="campaignId" value={campaignId} />
           {/* Radix unmounts the inactive tab, so the Write-tab inputs vanish from the
               DOM when you submit from Preview/Variables. These always-mounted hidden
@@ -178,9 +185,9 @@ export function AddSequenceStepDialog({ campaignId, previewLeads = [] }: AddSequ
             </Label>
           </div>
           <DialogFooter>
-            <Button type="submit">Save step</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Save step</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );

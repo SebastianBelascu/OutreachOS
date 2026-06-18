@@ -1,3 +1,5 @@
+"use client";
+
 import {
   archiveInboundAction,
   markInboundReadAction,
@@ -5,6 +7,7 @@ import {
   setInboundClassificationAction,
   setLeadStatusFromInboxAction,
 } from "@/app/(workspace)/actions";
+import { ToastForm } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { INBOUND_CLASSIFICATIONS } from "@/lib/outreach/constants";
 
@@ -32,44 +35,44 @@ export function InboxActions({
             { label: "Not interested", status: "NOT_INTERESTED" },
             { label: "Meeting booked", status: "MEETING_BOOKED" },
           ].map((option) => (
-            <form key={option.status} action={setLeadStatusFromInboxAction}>
+            <ToastForm key={option.status} action={setLeadStatusFromInboxAction} success="Status actualizat">
               <input type="hidden" name="leadId" value={leadId} />
               <input type="hidden" name="status" value={option.status} />
               <Button type="submit" variant="outline" size="sm" className="h-7 text-xs">
                 {option.label}
               </Button>
-            </form>
+            </ToastForm>
           ))}
         </div>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <form action={markInboundReadAction}>
+        <ToastForm action={markInboundReadAction} success={isRead ? "Marcat ca necitit" : "Marcat ca citit"}>
           <input type="hidden" name="inboundMessageId" value={inboundMessageId} />
           <input type="hidden" name="isRead" value={isRead ? "false" : "true"} />
           <Button type="submit" variant="ghost" size="sm" className="h-7 text-xs">
             Mark {isRead ? "unread" : "read"}
           </Button>
-        </form>
+        </ToastForm>
 
         {leadId && campaignId ? (
-          <form action={pauseEnrollmentFromInboxAction}>
+          <ToastForm action={pauseEnrollmentFromInboxAction} success="Înrolare oprită">
             <input type="hidden" name="leadId" value={leadId} />
             <input type="hidden" name="campaignId" value={campaignId} />
             <Button type="submit" variant="ghost" size="sm" className="h-7 text-xs">
               Pause sequence
             </Button>
-          </form>
+          </ToastForm>
         ) : null}
 
-        <form action={archiveInboundAction}>
+        <ToastForm action={archiveInboundAction} success="Arhivat">
           <input type="hidden" name="inboundMessageId" value={inboundMessageId} />
           <Button type="submit" variant="ghost" size="sm" className="h-7 text-xs">
             Archive
           </Button>
-        </form>
+        </ToastForm>
 
-        <form action={setInboundClassificationAction} className="flex items-center gap-1">
+        <ToastForm action={setInboundClassificationAction} success="Clasificare actualizată" className="flex items-center gap-1">
           <input type="hidden" name="inboundMessageId" value={inboundMessageId} />
           <select
             name="classification"
@@ -85,7 +88,7 @@ export function InboxActions({
           <Button type="submit" variant="ghost" size="sm" className="h-7 text-xs">
             Set
           </Button>
-        </form>
+        </ToastForm>
       </div>
     </div>
   );

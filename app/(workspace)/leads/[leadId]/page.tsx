@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { createLeadNoteAction, generateLeadFirstLineAction } from "@/app/(workspace)/actions";
 import { DeleteLeadButton } from "@/components/internal/delete-lead-button";
+import { ToastForm } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,12 +79,12 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
                 Personalization · {"{{first_line}}"}
               </p>
               {aiReady ? (
-                <form action={generateLeadFirstLineAction}>
+                <ToastForm action={generateLeadFirstLineAction} success="Personalizare generată">
                   <input type="hidden" name="leadId" value={lead.id} />
                   <Button type="submit" size="sm" variant="outline">
                     {firstLine ? "Regenerate with AI" : "Generate with AI"}
                   </Button>
-                </form>
+                </ToastForm>
               ) : null}
             </div>
             <p className="mt-2 whitespace-pre-line text-slate-700">
@@ -103,11 +104,11 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             <CardTitle>Add note</CardTitle>
           </CardHeader>
           <CardContent>
-            <form action={createLeadNoteAction} className="space-y-4">
+            <ToastForm action={createLeadNoteAction} success="Notiță adăugată" className="space-y-4">
               <input type="hidden" name="leadId" value={lead.id} />
               <Textarea name="content" placeholder="Context, objections, fit notes..." />
               <Button type="submit">Save note</Button>
-            </form>
+            </ToastForm>
           </CardContent>
         </Card>
 

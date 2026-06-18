@@ -1,13 +1,12 @@
-import Link from "next/link";
 import { connection } from "next/server";
 import { Inbox } from "lucide-react";
 
 import { AddLeadDialog } from "@/components/internal/add-lead-dialog";
 import { DataToolbar } from "@/components/internal/data-toolbar";
-import { DeleteLeadButton } from "@/components/internal/delete-lead-button";
 import { EmptyState } from "@/components/internal/empty-state";
 import { LeadImporter } from "@/components/internal/lead-importer";
-import { StatusBadge } from "@/components/internal/status-badge";
+import { LeadsTable, type LeadRow } from "@/components/internal/leads-table";
+import { FormSubmitButton, ToastForm } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,14 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { generateMissingFirstLinesAction } from "@/app/(workspace)/actions";
 import { isAiConfigured } from "@/lib/outreach/ai";
 import { CAMPAIGN_OFFERS, LEAD_PRIORITIES, LEAD_STATUSES } from "@/lib/outreach/constants";
@@ -50,17 +41,30 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
     priority: params.priority,
   });
 
+  const rows: LeadRow[] = leads.map((lead) => ({
+    id: lead.id,
+    label: lead.company ?? (`${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.email),
+    email: lead.email,
+    status: lead.status,
+    bestOffer: lead.bestOffer,
+    priority: lead.priority,
+    tags: lead.tags.map((entry) => entry.tag.name).join(", "),
+    enrollmentCount: lead.enrollments.length,
+    suppressed: lead.suppressions.length > 0,
+    updatedAt: formatDateTime(lead.updatedAt),
+  }));
+
   return (
     <div className="rounded-lg border bg-card">
       <DataToolbar
         actions={
           <>
             {isAiConfigured() ? (
-              <form action={generateMissingFirstLinesAction}>
-                <Button type="submit" variant="outline" size="sm">
+              <ToastForm action={generateMissingFirstLinesAction} success="Personalizare generată">
+                <FormSubmitButton variant="outline" size="sm" pendingLabel="Se generează...">
                   Generate personalization (AI)
-                </Button>
-              </form>
+                </FormSubmitButton>
+              </ToastForm>
             ) : null}
             <LeadImporter />
             <AddLeadDialog />
@@ -119,7 +123,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
         </form>
       </DataToolbar>
 
-      {leads.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState
           icon={Inbox}
           title="No leads found"
@@ -127,72 +131,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
           action={<AddLeadDialog />}
         />
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Lead</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Offer</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Campaigns</TableHead>
-                <TableHead>Suppression</TableHead>
-                <TableHead className="text-right">Updated</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {leads.map((lead) => (
-                <TableRow key={lead.id}>
-                  <TableCell>
-                    <Link href={`/leads/${lead.id}`} className="font-medium hover:underline">
-                      {lead.company ?? (`${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.email)}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">{lead.email}</p>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={lead.status} />
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {lead.bestOffer ? (
-                      <span className="font-medium">{lead.bestOffer}</span>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                    {lead.priority ? (
-                      <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold">
-                        {lead.priority}
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="max-w-[240px] text-xs text-muted-foreground">
-                    {lead.tags.map((entry) => entry.tag.name).join(", ") || "-"}
-                  </TableCell>
-                  <TableCell className="text-sm">{lead.enrollments.length}</TableCell>
-                  <TableCell className="text-sm">
-                    {lead.suppressions.length > 0 ? (
-                      <StatusBadge status="SUPPRESSED" />
-                    ) : (
-                      <span className="text-muted-foreground">Clear</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right text-xs text-muted-foreground">
-                    {formatDateTime(lead.updatedAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DeleteLeadButton
-                      leadId={lead.id}
-                      leadLabel={
-                        lead.company ?? (`${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.email)
-                      }
-                      enrollmentCount={lead.enrollments.length}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <LeadsTable leads={rows} />
       )}
     </div>
   );

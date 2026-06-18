@@ -1,8 +1,12 @@
+"use client";
+
 import type { SendingDomain } from "@prisma/client";
 import { Info, Plus } from "lucide-react";
+import { useState } from "react";
 
 import { createMailboxAction } from "@/app/(workspace)/actions";
 import { SendWindowPicker } from "@/components/internal/send-window-picker";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -53,8 +57,10 @@ function Section({
 }
 
 export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="size-4" />
@@ -68,7 +74,12 @@ export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) 
             Add the email address we will send from. Most settings already have safe defaults.
           </DialogDescription>
         </DialogHeader>
-        <form action={createMailboxAction} className="flex min-h-0 flex-col">
+        <ToastForm
+          action={createMailboxAction}
+          success="Căsuță creată"
+          onSuccess={() => setOpen(false)}
+          className="flex min-h-0 flex-col"
+        >
           <div className="max-h-[calc(88vh-150px)] space-y-4 overflow-y-auto px-6 py-5">
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
               <div className="flex gap-2">
@@ -291,9 +302,9 @@ export function CreateMailboxDialog({ domains = [] }: CreateMailboxDialogProps) 
           </div>
 
           <DialogFooter className="border-t bg-background px-6 py-4">
-            <Button type="submit">Save mailbox</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Save mailbox</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );

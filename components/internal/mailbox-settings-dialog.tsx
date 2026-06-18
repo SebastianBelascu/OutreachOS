@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Pencil } from "lucide-react";
 
 import { updateMailboxSettingsAction } from "@/app/(workspace)/actions";
 import { SendWindowPicker } from "@/components/internal/send-window-picker";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -58,9 +60,10 @@ export function MailboxSettingsDialog({
   rotationWeight,
 }: MailboxSettingsDialogProps) {
   const timezones = timezoneOptionsWith(timezone);
+  const [open, setOpen] = useState(false);
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="mt-1 h-6 px-2 text-xs">
           <Pencil className="size-3.5" />
@@ -75,7 +78,12 @@ export function MailboxSettingsDialog({
             campaign window and this mailbox window before sending.
           </DialogDescription>
         </DialogHeader>
-        <form action={updateMailboxSettingsAction} className="space-y-4">
+        <ToastForm
+          action={updateMailboxSettingsAction}
+          success="Căsuță actualizată"
+          onSuccess={() => setOpen(false)}
+          className="space-y-4"
+        >
           <input type="hidden" name="mailboxId" value={mailboxId} />
 
           <Label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
@@ -172,9 +180,9 @@ export function MailboxSettingsDialog({
             defaultEndHour={String(sendWindow.endHour)}
           />
           <DialogFooter>
-            <Button type="submit">Save</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Save</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );

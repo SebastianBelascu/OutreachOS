@@ -118,6 +118,15 @@ export async function deleteLead(leadId: string) {
   return prisma.lead.delete({ where: { id: leadId } });
 }
 
+/** Bulk-deletes leads by id. Same cascade rules as deleteLead. Returns the count removed. */
+export async function deleteLeads(leadIds: string[]) {
+  const ids = [...new Set(leadIds.filter(Boolean))];
+  if (ids.length === 0) {
+    return { count: 0 };
+  }
+  return prisma.lead.deleteMany({ where: { id: { in: ids } } });
+}
+
 function asCustomFields(value: Prisma.JsonValue | null): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }

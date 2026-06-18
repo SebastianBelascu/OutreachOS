@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Pencil } from "lucide-react";
 
 import { updateSequenceStepAction } from "@/app/(workspace)/actions";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -32,8 +34,10 @@ interface EditSequenceStepDialogProps {
 }
 
 export function EditSequenceStepDialog({ campaignId, step }: EditSequenceStepDialogProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 px-2 text-xs">
           <Pencil className="size-3.5" />
@@ -48,7 +52,12 @@ export function EditSequenceStepDialog({ campaignId, step }: EditSequenceStepDia
             queued ones keep their content.
           </DialogDescription>
         </DialogHeader>
-        <form action={updateSequenceStepAction} className="space-y-4">
+        <ToastForm
+          action={updateSequenceStepAction}
+          success="Pas actualizat"
+          onSuccess={() => setOpen(false)}
+          className="space-y-4"
+        >
           <input type="hidden" name="campaignId" value={campaignId} />
           <input type="hidden" name="stepId" value={step.id} />
           <div className="space-y-2">
@@ -92,9 +101,9 @@ export function EditSequenceStepDialog({ campaignId, step }: EditSequenceStepDia
             </Label>
           </div>
           <DialogFooter>
-            <Button type="submit">Save changes</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Save changes</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );

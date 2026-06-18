@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Plus } from "lucide-react";
 
 import { createSequenceStepVariantAction } from "@/app/(workspace)/actions";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,8 +26,10 @@ interface AddVariantDialogProps {
 }
 
 export function AddVariantDialog({ campaignId, sequenceStepId, suggestedLabel }: AddVariantDialogProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs">
           <Plus className="size-3" />
@@ -39,7 +43,12 @@ export function AddVariantDialog({ campaignId, sequenceStepId, suggestedLabel }:
             Each enrolled lead is assigned one variant (weighted). Supports {"{{variables}}"} and spintax {"{a|b}"}.
           </DialogDescription>
         </DialogHeader>
-        <form action={createSequenceStepVariantAction} className="space-y-3">
+        <ToastForm
+          action={createSequenceStepVariantAction}
+          success="Variantă adăugată"
+          onSuccess={() => setOpen(false)}
+          className="space-y-3"
+        >
           <input type="hidden" name="campaignId" value={campaignId} />
           <input type="hidden" name="sequenceStepId" value={sequenceStepId} />
           <div className="grid gap-3 md:grid-cols-2">
@@ -78,9 +87,9 @@ export function AddVariantDialog({ campaignId, sequenceStepId, suggestedLabel }:
             />
           </div>
           <DialogFooter>
-            <Button type="submit">Add variant</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Add variant</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );

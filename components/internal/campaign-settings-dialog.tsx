@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Settings } from "lucide-react";
 
 import { updateCampaignSettingsAction } from "@/app/(workspace)/actions";
 import { SendWindowPicker } from "@/components/internal/send-window-picker";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,9 +41,10 @@ export function CampaignSettingsDialog({
   sendWindow,
 }: CampaignSettingsDialogProps) {
   const timezones = timezoneOptionsWith(timezone);
+  const [open, setOpen] = useState(false);
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           <Settings className="size-4" />
@@ -56,7 +59,12 @@ export function CampaignSettingsDialog({
             during the next allowed window.
           </DialogDescription>
         </DialogHeader>
-        <form action={updateCampaignSettingsAction} className="space-y-4">
+        <ToastForm
+          action={updateCampaignSettingsAction}
+          success="Setări salvate"
+          onSuccess={() => setOpen(false)}
+          className="space-y-4"
+        >
           <input type="hidden" name="campaignId" value={campaignId} />
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -91,9 +99,9 @@ export function CampaignSettingsDialog({
             defaultEndHour={String(sendWindow.endHour)}
           />
           <DialogFooter>
-            <Button type="submit">Save settings</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Save settings</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );

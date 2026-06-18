@@ -22,6 +22,7 @@ import {
   createLead,
   createLeadNote,
   deleteLead,
+  deleteLeads,
   generateLeadFirstLine,
   generateMissingFirstLines,
   setLeadStatus,
@@ -399,6 +400,29 @@ export async function deleteLeadAction(formData: FormData): Promise<ActionResult
     return { ok: true, message: "Lead șters." };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Nu am putut șterge lead-ul." };
+  }
+}
+
+export async function deleteLeadsAction(formData: FormData): Promise<ActionResult> {
+  const appUser = await requireAppUser();
+  if (!appUser) {
+    return { ok: false, message: "Authentication required." };
+  }
+
+  try {
+    const leadIds = formData
+      .getAll("leadIds")
+      .map((value) => String(value))
+      .filter(Boolean);
+    if (leadIds.length === 0) {
+      return { ok: false, message: "Niciun lead selectat." };
+    }
+    const { count } = await deleteLeads(leadIds);
+    revalidatePath("/leads");
+    revalidatePath("/dashboard");
+    return { ok: true, message: `${count} ${count === 1 ? "lead șters" : "leaduri șterse"}.` };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Nu am putut șterge leadurile." };
   }
 }
 

@@ -4,6 +4,7 @@ import { Clock3, Mail } from "lucide-react";
 import { deleteSequenceStepVariantAction, toggleSequenceStepVariantAction } from "@/app/(workspace)/actions";
 import { AddVariantDialog } from "@/components/internal/add-variant-dialog";
 import { EditSequenceStepDialog } from "@/components/internal/edit-sequence-step-dialog";
+import { ToastForm } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 
 interface SequenceStepCardProps {
@@ -70,21 +71,24 @@ export function SequenceStepCard({ campaignId, step }: SequenceStepCardProps) {
                   <p className="truncate text-muted-foreground">{variant.subject}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <form action={toggleSequenceStepVariantAction}>
+                  <ToastForm
+                    action={toggleSequenceStepVariantAction}
+                    success={variant.isActive ? "Variantă oprită" : "Variantă activată"}
+                  >
                     <input type="hidden" name="campaignId" value={campaignId} />
                     <input type="hidden" name="variantId" value={variant.id} />
                     <input type="hidden" name="isActive" value={variant.isActive ? "false" : "true"} />
                     <Button type="submit" variant="ghost" size="sm" className="h-6 px-2 text-xs">
                       {variant.isActive ? "Pause" : "Enable"}
                     </Button>
-                  </form>
-                  <form action={deleteSequenceStepVariantAction}>
+                  </ToastForm>
+                  <ToastForm action={deleteSequenceStepVariantAction} success="Variantă ștearsă">
                     <input type="hidden" name="campaignId" value={campaignId} />
                     <input type="hidden" name="variantId" value={variant.id} />
                     <Button type="submit" variant="ghost" size="sm" className="h-6 px-2 text-xs text-rose-600">
                       Delete
                     </Button>
-                  </form>
+                  </ToastForm>
                 </div>
               </div>
             ))}

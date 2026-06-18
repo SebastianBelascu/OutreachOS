@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { createCampaignFromTemplateAction } from "@/app/(workspace)/actions";
 import { SendWindowPicker } from "@/components/internal/send-window-picker";
+import { ToastForm, FormSubmitButton } from "@/components/internal/toast-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -34,10 +35,11 @@ interface CreateCampaignFromTemplateDialogProps {
 
 export function CreateCampaignFromTemplateDialog({ mailboxes }: CreateCampaignFromTemplateDialogProps) {
   const [templateId, setTemplateId] = useState(CAMPAIGN_TEMPLATES[0]?.id ?? "");
+  const [open, setOpen] = useState(false);
   const selected = CAMPAIGN_TEMPLATES.find((template) => template.id === templateId);
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" disabled={mailboxes.length === 0}>
           <Sparkles className="size-4" />
@@ -51,7 +53,12 @@ export function CreateCampaignFromTemplateDialog({ mailboxes }: CreateCampaignFr
             Pre-fills a 3-step SmartFusion sequence (uses {"{{first_line}}"} / {"{{observation}}"} from lead-hub).
           </DialogDescription>
         </DialogHeader>
-        <form action={createCampaignFromTemplateAction} className="grid gap-4 md:grid-cols-2">
+        <ToastForm
+          action={createCampaignFromTemplateAction}
+          success="Campanie creată"
+          onSuccess={() => setOpen(false)}
+          className="grid gap-4 md:grid-cols-2"
+        >
           <input type="hidden" name="templateId" value={templateId} />
           <div className="space-y-2 md:col-span-2">
             <Label>Template</Label>
@@ -126,9 +133,9 @@ export function CreateCampaignFromTemplateDialog({ mailboxes }: CreateCampaignFr
           </div>
           <SendWindowPicker />
           <DialogFooter className="md:col-span-2">
-            <Button type="submit">Create campaign</Button>
+            <FormSubmitButton pendingLabel="Se salvează...">Create campaign</FormSubmitButton>
           </DialogFooter>
-        </form>
+        </ToastForm>
       </DialogContent>
     </Dialog>
   );
