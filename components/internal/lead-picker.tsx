@@ -1,7 +1,8 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState, useTransition } from "react";
 import { Check, Eye, EyeOff, Search, UserPlus } from "lucide-react";
+import { toast } from "sonner";
 
 import { enrollLeadsAction } from "@/app/(workspace)/actions";
 import { StatusBadge } from "@/components/internal/status-badge";
@@ -44,11 +45,13 @@ function isFresh(lead: PickerLead) {
 }
 
 export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [amount, setAmount] = useState("50");
   // Hide leads that have already been in a campaign by default — a new campaign wants fresh leads.
   const [hideUsed, setHideUsed] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pending, startTransition] = useTransition();
   const deferredQuery = useDeferredValue(query.toLowerCase());
 
   const searchedLeads = useMemo(
@@ -98,8 +101,22 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
     setSelected(new Set());
   }
 
+  function handleSubmit(formData: FormData) {
+    const count = selected.size;
+    startTransition(async () => {
+      try {
+        await enrollLeadsAction(formData);
+        toast.success(`${count} ${count === 1 ? "lead înrolat" : "leaduri înrolate"}`);
+        setSelected(new Set());
+        setOpen(false);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Nu am putut înrola leadurile.");
+      }
+    });
+  }
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button type="button" variant="outline" size="sm">
           <UserPlus className="size-4" />
@@ -113,7 +130,7 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
             Leadurile deja folosite în alte campanii sunt ascunse implicit. Tastează un număr și ia primele N, sau bifează manual.
           </SheetDescription>
         </SheetHeader>
-        <form action={enrollLeadsAction} className="flex min-h-0 flex-1 flex-col">
+        <form action={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <input type="hidden" name="campaignId" value={campaignId} />
           {/* Controlled selection → one hidden field per chosen lead, always submitted. */}
           {[...selected].map((id) => (
@@ -225,8 +242,8 @@ export function LeadPicker({ campaignId, leads }: LeadPickerProps) {
                 {selected.size} selectate · {visibleLeads.length} afișate
                 {hiddenUsedCount > 0 ? ` · ${hiddenUsedCount} ascunse` : ""}
               </span>
-              <Button type="submit" disabled={selected.size === 0}>
-                Enroll {selected.size}
+              <Button type="submit" disabled={selected.size === 0 || pending}>
+                {pending ? "Se înrolează..." : `Enroll ${selected.size}`}
               </Button>
             </div>
           </SheetFooter>

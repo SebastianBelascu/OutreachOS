@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Send } from "lucide-react";
+import { toast } from "sonner";
 
 import { sendInboxReplyAction } from "@/app/(workspace)/actions";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,13 @@ export function ReplyComposer({ inboundMessageId, toEmail }: ReplyComposerProps)
     <form
       ref={formRef}
       action={async (formData) => {
-        await sendInboxReplyAction(formData);
-        formRef.current?.reset();
+        try {
+          await sendInboxReplyAction(formData);
+          formRef.current?.reset();
+          toast.success("Răspuns trimis");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Nu am putut trimite răspunsul.");
+        }
       }}
       className="space-y-2 border-t bg-background p-3"
     >

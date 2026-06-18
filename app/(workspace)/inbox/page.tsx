@@ -5,6 +5,7 @@ import { Inbox as InboxIcon } from "lucide-react";
 import { InboxActions } from "@/components/internal/inbox-actions";
 import { ReplyComposer } from "@/components/internal/reply-composer";
 import { StatusBadge } from "@/components/internal/status-badge";
+import { TestEmailDialog } from "@/components/internal/test-email-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { requireAppUser } from "@/lib/outreach/auth";
 import { INBOUND_CLASSIFICATIONS } from "@/lib/outreach/constants";
 import { getThread, listInbox } from "@/lib/outreach/inbox";
 import { prisma } from "@/lib/prisma";
@@ -53,7 +55,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
       ? (params.classification as InboundClassification)
       : undefined;
 
-  const [items, mailboxes, campaigns, thread] = await Promise.all([
+  const [items, mailboxes, campaigns, thread, appUser] = await Promise.all([
     listInbox({
       mailboxId: params.mailboxId,
       campaignId: params.campaignId,
@@ -64,6 +66,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
     prisma.mailbox.findMany({ select: { id: true, fromEmail: true }, orderBy: { fromEmail: "asc" } }),
     prisma.campaign.findMany({ select: { id: true, name: true }, orderBy: { updatedAt: "desc" } }),
     params.thread ? getThread(params.thread) : Promise.resolve(null),
+    requireAppUser(),
   ]);
 
   const baseParams = {
@@ -77,6 +80,12 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Răspunsurile sunt aduse automat de cron la fiecare 10 minute.
+        </p>
+        <TestEmailDialog mailboxes={mailboxes} defaultTo={appUser?.email} />
+      </div>
       <div className="rounded-lg border bg-card p-3">
         <form className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
           <Input name="q" placeholder="Search sender, subject" defaultValue={params.q ?? ""} className="md:max-w-xs" />

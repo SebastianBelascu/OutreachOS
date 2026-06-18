@@ -33,6 +33,7 @@ import {
 } from "@/lib/outreach/replies";
 import type { InboundClassification } from "@prisma/client";
 import { createSendingDomain, updateMailboxSettings } from "@/lib/outreach/mailboxes";
+import { sendTestEmail } from "@/lib/outreach/test-send";
 import { sendMessageNow } from "@/lib/outreach/messages";
 import { verifySendingDomain } from "@/lib/outreach/dns";
 import { splitCommaValues } from "@/lib/outreach/format";
@@ -448,4 +449,39 @@ export async function activateCampaignAction(formData: FormData) {
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath("/campaigns");
   revalidatePath("/dashboard");
+}
+
+export interface ActionResult {
+  ok: boolean;
+  message: string;
+}
+
+/**
+ * Fires a one-off test email so the operator can check inbox placement without
+ * building a campaign. Returns a result object (instead of throwing) so the real
+ * provider error reaches the toast — server-action throws are redacted in prod.
+ */
+export async function sendTestEmailAction(formData: FormData): Promise<ActionResult> {
+  const appUser = await requireAppUser();
+  if (!appUser) {
+    return { ok: false, message: "Authentication required." };
+  }
+
+  try {
+    const result = await sendTestEmail({
+      mailboxId: requireValue(formData.get("mailboxId"), "Mailbox"),
+      to: requireValue(formData.get("to"), "Recipient"),
+      subject: String(formData.get("subject") ?? ""),
+      body: String(formData.get("body") ?? ""),
+    });
+    return {
+      ok: true,
+      message: `Trimis din ${result.from} către ${result.to} (${result.transport}). Verifică unde a aterizat.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Trimiterea testului a eșuat.",
+    };
+  }
 }

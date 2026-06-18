@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FileUp, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,10 +135,19 @@ export function LeadImporter() {
 
       const payload = (await response.json()) as ImportResponse;
       setResult(payload);
+      if (nextMode === "import") {
+        toast.success("Import gata", {
+          description: `${payload.importedRows} adăugate, ${payload.updatedRows} actualizate din ${payload.totalRows} rânduri.`,
+        });
+      } else {
+        toast.info("Preview gata", {
+          description: `${payload.validRows} valide din ${payload.totalRows} rânduri.`,
+        });
+      }
     } catch (requestError) {
-      setError(
-        requestError instanceof Error ? requestError.message : "Import request failed.",
-      );
+      const message = requestError instanceof Error ? requestError.message : "Import request failed.";
+      setError(message);
+      toast.error(nextMode === "import" ? "Importul a eșuat" : "Preview-ul a eșuat", { description: message });
     } finally {
       setLoading(false);
     }
